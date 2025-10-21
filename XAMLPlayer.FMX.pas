@@ -28,9 +28,42 @@ uses
 
 type
   [ComponentPlatformsAttribute(pfidWindows)]
-  TXAMLMediaPlayer = class(TControl)
+  TXAMLHost = class(TControl)
+  protected
+    FIsland: TXAMLIsland;
+    procedure AncestorParentChanged; override;
+    procedure AncestorVisibleChanged(const Visible: Boolean); override;
+    procedure CreateFormWnd(const Sender: TObject; const M: TMessage);
+    procedure DoAbsoluteChanged; override;
+    function GetParentForm: TCommonCustomForm;
+    procedure Loaded; override;
+    procedure Move; override;
+    procedure Paint; override;
+    procedure ParentChanged; override;
+    procedure ReqPosition(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer);
+    procedure Resize; override;
+    procedure UpdateParent;
+    procedure VisibleChanged; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+  published
+    property Align;
+    property Anchors;
+    property Height;
+    property Margins;
+    property Position;
+    property Size;
+    property Visible default True;
+    property Width;
+    property OnResize;
+    property OnResized;
+  end;
+
+  [ComponentPlatformsAttribute(pfidWindows)]
+  TXAMLMediaPlayer = class(TXAMLHost)
   private
-    FIsland: TXAMLPlayerIsland;
+    FPlayerWrapper: TXAMLPlayerWrapper;
     function GetControlsVisible: Boolean;
     function GetFileName: string;
     function GetIsMuted: Boolean;
@@ -47,20 +80,6 @@ type
     function GetStateEvent: TPlayerStateEvent;
     procedure SetErrorEvent(const Value: TPlayerErrorEvent);
     procedure SetStateEvent(const Value: TPlayerStateEvent);
-  protected
-    procedure AncestorParentChanged; override;
-    procedure AncestorVisibleChanged(const Visible: Boolean); override;
-    procedure CreateFormWnd(const Sender: TObject; const M: TMessage);
-    procedure DoAbsoluteChanged; override;
-    function GetParentForm: TCommonCustomForm;
-    procedure Loaded; override;
-    procedure Move; override;
-    procedure Paint; override;
-    procedure ParentChanged; override;
-    procedure Resize; override;
-    procedure ReqPosition(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer);
-    procedure UpdateParent;
-    procedure VisibleChanged; override;
   public
     property PlaybackPosition: TTime read GetPlaybackPosition write SetPlaybackPosition;
     constructor Create(AOwner: TComponent); override;
@@ -78,16 +97,6 @@ type
     procedure Previous;
     procedure Stop;
   published
-    property Align;
-    property Anchors;
-    property Height;
-    property Margins;
-    property Position;
-    property Size;
-    property Visible default True;
-    property Width;
-    property OnResize;
-    property OnResized;
     property ControlsVisible: Boolean read GetControlsVisible write SetControlsVisible default False;
     property FileName: string read GetFileName write SetFileName;
     property IsMuted: Boolean read GetIsMuted write SetIsMuted default False;
@@ -104,7 +113,58 @@ implementation
 uses
   System.UIConsts, System.Types, FMX.Platform.Win;
 
-function TXAMLMediaPlayer.GetParentForm: TCommonCustomForm;
+{ TXAMLHost }
+
+constructor TXAMLHost.Create(AOwner: TComponent);
+begin
+  inherited;
+
+  FIsland := TXAMLIsland.Create(ReqPosition);
+
+  if FIsland.Initialized then
+    TMessageManager.DefaultManager.SubscribeToMessage(TAfterCreateFormHandle, CreateFormWnd);
+end;
+
+destructor TXAMLHost.Destroy;
+begin
+  TMessageManager.DefaultManager.Unsubscribe(TAfterCreateFormHandle, CreateFormWnd);
+
+  FIsland.Free;
+
+  inherited;
+end;
+
+procedure TXAMLHost.AncestorParentChanged;
+begin
+  inherited;
+
+  UpdateParent;
+end;
+
+procedure TXAMLHost.AncestorVisibleChanged(const Visible: Boolean);
+begin
+  inherited;
+
+  FIsland.UpdateVisibility;
+end;
+
+procedure TXAMLHost.CreateFormWnd(const Sender: TObject; const M: TMessage);
+var
+  Form: TCommonCustomForm;
+begin
+  Form := (M as TAfterCreateFormHandle).Value;
+  if Form = GetParentForm then
+    FIsland.UpdateParentHandle(FmxHandleToHWND(Form.Handle), FmxHandleToHWND(Form.Handle));
+end;
+
+procedure TXAMLHost.DoAbsoluteChanged;
+begin
+  inherited;
+
+  FIsland.UpdateVisibility;
+end;
+
+function TXAMLHost.GetParentForm: TCommonCustomForm;
 var
   LParent: TFmxObject;
 begin
@@ -117,147 +177,21 @@ begin
     Result := nil;
 end;
 
-procedure TXAMLMediaPlayer.AncestorParentChanged;
+procedure TXAMLHost.Loaded;
 begin
   inherited;
 
   UpdateParent;
 end;
 
-procedure TXAMLMediaPlayer.AncestorVisibleChanged(const Visible: Boolean);
+procedure TXAMLHost.Move;
 begin
   inherited;
 
   FIsland.UpdateVisibility;
 end;
 
-constructor TXAMLMediaPlayer.Create(AOwner: TComponent);
-begin
-  inherited;
-
-  FIsland := TXAMLPlayerIsland.Create(ReqPosition);
-
-  if FIsland.Initialized then
-    TMessageManager.DefaultManager.SubscribeToMessage(TAfterCreateFormHandle, CreateFormWnd);
-end;
-
-procedure TXAMLMediaPlayer.CreateFormWnd(const Sender: TObject; const M: TMessage);
-var
-  Form: TCommonCustomForm;
-begin
-  Form := (M as TAfterCreateFormHandle).Value;
-  if Form = GetParentForm then
-    FIsland.UpdateParentHandle(FmxHandleToHWND(Form.Handle), FmxHandleToHWND(Form.Handle));
-end;
-
-destructor TXAMLMediaPlayer.Destroy;
-begin
-  FIsland.Stop;
-
-  TMessageManager.DefaultManager.Unsubscribe(TAfterCreateFormHandle, CreateFormWnd);
-
-  FIsland.Free;
-
-  inherited;
-end;
-
-procedure TXAMLMediaPlayer.DoAbsoluteChanged;
-begin
-  inherited;
-
-  FIsland.UpdateVisibility;
-end;
-
-function TXAMLMediaPlayer.GetControlsVisible: Boolean;
-begin
-  Result := FIsland.ControlsVisible;
-end;
-
-function TXAMLMediaPlayer.GetCurrentMedia_Duration: TTime;
-begin
-  Result := FIsland.GetCurrentMedia_Duration;
-end;
-
-function TXAMLMediaPlayer.GetCurrentMedia_NumInPlaylist: Integer;
-begin
-  Result := FIsland.GetCurrentMedia_NumInPlaylist;
-end;
-
-function TXAMLMediaPlayer.GetCurrentMedia_Title: String;
-begin
-  Result := FIsland.GetCurrentMedia_Title;
-end;
-
-function TXAMLMediaPlayer.GetErrorEvent: TPlayerErrorEvent;
-begin
-  Result := FIsland.OnError;
-end;
-
-function TXAMLMediaPlayer.GetFileName: string;
-begin
-  Result := FIsland.FileName;
-end;
-
-function TXAMLMediaPlayer.GetIsMuted: Boolean;
-begin
-  Result := FIsland.IsMuted;
-end;
-
-function TXAMLMediaPlayer.GetLoopPlayback: Boolean;
-begin
-  Result := FIsland.LoopPlayback;
-end;
-
-function TXAMLMediaPlayer.GetPlayListSize: Integer;
-begin
-  Result := FIsland.GetPlayListSize;
-end;
-
-function TXAMLMediaPlayer.GetPlaybackPosition: TTime;
-begin
-  Result := FIsland.PlaybackPosition;
-end;
-
-function TXAMLMediaPlayer.GetStateEvent: TPlayerStateEvent;
-begin
-  Result := FIsland.OnStateChange;
-end;
-
-function TXAMLMediaPlayer.GetStretch: TVideoStretch;
-begin
-  Result := FIsland.Stretch;
-end;
-
-function TXAMLMediaPlayer.IsPaused: Boolean;
-begin
-  Result := FIsland.IsPaused;
-end;
-
-function TXAMLMediaPlayer.IsPlaying: Boolean;
-begin
-  Result := FIsland.IsPlaying;
-end;
-
-procedure TXAMLMediaPlayer.Loaded;
-begin
-  inherited;
-
-  UpdateParent;
-end;
-
-procedure TXAMLMediaPlayer.Move;
-begin
-  inherited;
-
-  FIsland.UpdateVisibility;
-end;
-
-procedure TXAMLMediaPlayer.Next;
-begin
-  FIsland.Next;
-end;
-
-procedure TXAMLMediaPlayer.Paint;
+procedure TXAMLHost.Paint;
 begin
   inherited;
 
@@ -273,34 +207,14 @@ begin
   end;
 end;
 
-procedure TXAMLMediaPlayer.ParentChanged;
+procedure TXAMLHost.ParentChanged;
 begin
   inherited;
 
   UpdateParent;
 end;
 
-procedure TXAMLMediaPlayer.Pause;
-begin
-  FIsland.Pause;
-end;
-
-procedure TXAMLMediaPlayer.Play;
-begin
-  FIsland.Play;
-end;
-
-procedure TXAMLMediaPlayer.PlayDirectory(ADirectory, AFileMask: String);
-begin
-  FIsland.PlayDirectory(ADirectory, AFileMask);
-end;
-
-procedure TXAMLMediaPlayer.Previous;
-begin
-  FIsland.Previous;
-end;
-
-procedure TXAMLMediaPlayer.ReqPosition(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer);
+procedure TXAMLHost.ReqPosition(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer);
 
   function ParentVisible: Boolean;
   var
@@ -334,59 +248,14 @@ begin
   AHeight := Trunc(RectOnForm.Height);
 end;
 
-procedure TXAMLMediaPlayer.Resize;
+procedure TXAMLHost.Resize;
 begin
   inherited;
 
   FIsland.UpdateVisibility;
 end;
 
-procedure TXAMLMediaPlayer.SetControlsVisible(const Value: Boolean);
-begin
-  FIsland.ControlsVisible := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetErrorEvent(const Value: TPlayerErrorEvent);
-begin
-  FIsland.OnError := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetFileName(const Value: string);
-begin
-  FIsland.FileName := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetIsMuted(const Value: Boolean);
-begin
-  FIsland.IsMuted := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetLoopPlayback(const Value: Boolean);
-begin
-  FIsland.LoopPlayback := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetPlaybackPosition(const Value: TTime);
-begin
-  FIsland.PlaybackPosition := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetStateEvent(const Value: TPlayerStateEvent);
-begin
-  FIsland.OnStateChange := Value;
-end;
-
-procedure TXAMLMediaPlayer.SetStretch(const Value: TVideoStretch);
-begin
-  FIsland.Stretch := Value;
-end;
-
-procedure TXAMLMediaPlayer.Stop;
-begin
-  FIsland.Stop;
-end;
-
-procedure TXAMLMediaPlayer.UpdateParent;
+procedure TXAMLHost.UpdateParent;
 var
   Form: TCommonCustomForm;
 begin
@@ -395,11 +264,168 @@ begin
     FIsland.UpdateParentHandle(FmxHandleToHWND(Form.Handle), FmxHandleToHWND(Form.Handle));
 end;
 
-procedure TXAMLMediaPlayer.VisibleChanged;
+procedure TXAMLHost.VisibleChanged;
 begin
   inherited;
 
   FIsland.UpdateVisibility;
+end;
+
+{ TXAMLMediaPlayer }
+
+constructor TXAMLMediaPlayer.Create(AOwner: TComponent);
+begin
+  inherited;
+
+  FPlayerWrapper := TXAMLPlayerWrapper.Create(FIsland);
+end;
+
+destructor TXAMLMediaPlayer.Destroy;
+begin
+  FPlayerWrapper.Stop;
+  FPlayerWrapper.Free;
+
+  inherited;
+end;
+
+function TXAMLMediaPlayer.GetControlsVisible: Boolean;
+begin
+  Result := FPlayerWrapper.ControlsVisible;
+end;
+
+function TXAMLMediaPlayer.GetCurrentMedia_Duration: TTime;
+begin
+  Result := FPlayerWrapper.GetCurrentMedia_Duration;
+end;
+
+function TXAMLMediaPlayer.GetCurrentMedia_NumInPlaylist: Integer;
+begin
+  Result := FPlayerWrapper.GetCurrentMedia_NumInPlaylist;
+end;
+
+function TXAMLMediaPlayer.GetCurrentMedia_Title: String;
+begin
+  Result := FPlayerWrapper.GetCurrentMedia_Title;
+end;
+
+function TXAMLMediaPlayer.GetErrorEvent: TPlayerErrorEvent;
+begin
+  Result := FPlayerWrapper.OnError;
+end;
+
+function TXAMLMediaPlayer.GetFileName: string;
+begin
+  Result := FPlayerWrapper.FileName;
+end;
+
+function TXAMLMediaPlayer.GetIsMuted: Boolean;
+begin
+  Result := FPlayerWrapper.IsMuted;
+end;
+
+function TXAMLMediaPlayer.GetLoopPlayback: Boolean;
+begin
+  Result := FPlayerWrapper.LoopPlayback;
+end;
+
+function TXAMLMediaPlayer.GetPlayListSize: Integer;
+begin
+  Result := FPlayerWrapper.GetPlayListSize;
+end;
+
+function TXAMLMediaPlayer.GetPlaybackPosition: TTime;
+begin
+  Result := FPlayerWrapper.PlaybackPosition;
+end;
+
+function TXAMLMediaPlayer.GetStateEvent: TPlayerStateEvent;
+begin
+  Result := FPlayerWrapper.OnStateChange;
+end;
+
+function TXAMLMediaPlayer.GetStretch: TVideoStretch;
+begin
+  Result := FPlayerWrapper.Stretch;
+end;
+
+function TXAMLMediaPlayer.IsPaused: Boolean;
+begin
+  Result := FPlayerWrapper.IsPaused;
+end;
+
+function TXAMLMediaPlayer.IsPlaying: Boolean;
+begin
+  Result := FPlayerWrapper.IsPlaying;
+end;
+
+procedure TXAMLMediaPlayer.Next;
+begin
+  FPlayerWrapper.Next;
+end;
+
+procedure TXAMLMediaPlayer.Pause;
+begin
+  FPlayerWrapper.Pause;
+end;
+
+procedure TXAMLMediaPlayer.Play;
+begin
+  FPlayerWrapper.Play;
+end;
+
+procedure TXAMLMediaPlayer.PlayDirectory(ADirectory, AFileMask: String);
+begin
+  FPlayerWrapper.PlayDirectory(ADirectory, AFileMask);
+end;
+
+procedure TXAMLMediaPlayer.Previous;
+begin
+  FPlayerWrapper.Previous;
+end;
+
+procedure TXAMLMediaPlayer.SetControlsVisible(const Value: Boolean);
+begin
+  FPlayerWrapper.ControlsVisible := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetErrorEvent(const Value: TPlayerErrorEvent);
+begin
+  FPlayerWrapper.OnError := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetFileName(const Value: string);
+begin
+  FPlayerWrapper.FileName := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetIsMuted(const Value: Boolean);
+begin
+  FPlayerWrapper.IsMuted := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetLoopPlayback(const Value: Boolean);
+begin
+  FPlayerWrapper.LoopPlayback := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetPlaybackPosition(const Value: TTime);
+begin
+  FPlayerWrapper.PlaybackPosition := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetStateEvent(const Value: TPlayerStateEvent);
+begin
+  FPlayerWrapper.OnStateChange := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetStretch(const Value: TVideoStretch);
+begin
+  FPlayerWrapper.Stretch := Value;
+end;
+
+procedure TXAMLMediaPlayer.Stop;
+begin
+  FPlayerWrapper.Stop;
 end;
 
 procedure Register;

@@ -46,6 +46,23 @@ type
     class property Initialized: Boolean read FInitialized;
   end;
 
+  TXAMLIsland = class(TXAMLEngine)
+  private
+    FPositionRequest: TPlayerPositionRequest;
+    FInterop: IDesktopWindowXamlSourceNative;
+    FHostHandle: HWND;
+    FElement: IUIElement;
+    function GetElement: IUIElement;
+    procedure SetElement(const Value: IUIElement);
+    procedure Detach;
+  public
+    property Element: IUIElement read GetElement write SetElement;
+    constructor Create(APositionGetter: TPlayerPositionRequest);
+    destructor Destroy; override;
+    procedure UpdateParentHandle(AParent, ATopParent: HWND);
+    procedure UpdateVisibility;
+  end;
+
   TXAMLPlayerEventHolder = class(TNoRefCountObject, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable,
       TypedEventHandler_2__Playback_IMediaPlayer__IInspectable_Delegate_Base)
     FHandler: THandler;
@@ -65,19 +82,16 @@ type
     constructor Create(AHandler: TErrorHandler);
   end;
 
-  TXAMLPlayerIsland = class(TXAMLEngine)
+  TXAMLPlayerWrapper = class(TXAMLEngine)
   private
     FControlsVisible: Boolean;
     FErrorEvent: TPlayerErrorEvent;
     FFileName: string;
     FIsMuted: Boolean;
     FLoopPlayback: Boolean;
-    FPositionRequest: TPlayerPositionRequest;
     FStateEvent: TPlayerStateEvent;
     FStretch: TVideoStretch;
     FPlayList: Playback_IMediaPlaybackList;
-    FInterop: IDesktopWindowXamlSourceNative;
-    FHostHandle: HWND;
     FMediaPlayer: Playback_IMediaPlayer;
     FMPElement: IMediaPlayerElement;
     FStateEventHolder: TXAMLPlayerEventHolder;
@@ -100,7 +114,7 @@ type
     procedure ErrorHandler(AType: TErrorType; const AMesage: String);
     procedure StateChangeHandler;
   public
-    constructor Create(APositionGetter: TPlayerPositionRequest);
+    constructor Create(AIsland: TXAMLIsland);
     destructor Destroy; override;
     function GetCurrentMedia_Duration: TTime;
     function GetCurrentMedia_NumInPlaylist: Integer;
@@ -114,8 +128,6 @@ type
     procedure PlayDirectory(ADirectory: String; AFileMask: String = '*.mp4');
     procedure Previous;
     procedure Stop;
-    procedure UpdateParentHandle(AParent, ATopParent: HWND);
-    procedure UpdateVisibility;
     property PlaybackPosition: TTime read GetPlaybackPosition write SetPlaybackPosition;
   published
     property ControlsVisible: Boolean read GetControlsVisible write SetControlsVisible default False;
@@ -196,12 +208,11 @@ begin
   FHandler(ConvertType[args.Error], Msg);
 end;
 
-{ TXAMLPlayerIsland }
+{ TXAMLPlayerWrapper }
 
-constructor TXAMLPlayerIsland.Create(APositionGetter: TPlayerPositionRequest);
+constructor TXAMLPlayerWrapper.Create(AIsland: TXAMLIsland);
 begin
   FStretch := vsFit;
-  FPositionRequest := APositionGetter;
 
   if FInitialized then
   begin
@@ -216,10 +227,12 @@ begin
     FEndedEventHolder.Token := FMediaPlayer.add_MediaEnded(FEndedEventHolder);
     FErrorEventHolder := TXAMLPlayerErrorEventHolder.Create(ErrorHandler);
     FErrorEventHolder.Token := FMediaPlayer.add_MediaFailed(FErrorEventHolder);
+
+    AIsland.Element := FMPElement as IUIElement;
   end;
 end;
 
-destructor TXAMLPlayerIsland.Destroy;
+destructor TXAMLPlayerWrapper.Destroy;
 begin
   Stop;
 
@@ -236,32 +249,28 @@ begin
   FPlayList := nil;
   FMediaPlayer := nil;
   FMPElement := nil;
-  FHostHandle := 0;
-  if Assigned(FInterop) then
-    (FInterop as IClosable).Close;
-  FInterop := nil;
 
   inherited;
 end;
 
-procedure TXAMLPlayerIsland.DoStateChange(AState: TPlayerState);
+procedure TXAMLPlayerWrapper.DoStateChange(AState: TPlayerState);
 begin
   if Assigned(FStateEvent) then
     FStateEvent(Self, AState);
 end;
 
-procedure TXAMLPlayerIsland.EndFileHandler;
+procedure TXAMLPlayerWrapper.EndFileHandler;
 begin
   DoStateChange(psStopped);
 end;
 
-procedure TXAMLPlayerIsland.ErrorHandler(AType: TErrorType; const AMesage: String);
+procedure TXAMLPlayerWrapper.ErrorHandler(AType: TErrorType; const AMesage: String);
 begin
   if Assigned(FErrorEvent) then
     FErrorEvent(Self, AType, AMesage);
 end;
 
-function TXAMLPlayerIsland.GetControlsVisible: Boolean;
+function TXAMLPlayerWrapper.GetControlsVisible: Boolean;
 begin
   if FInitialized then
     Result := FMPElement.AreTransportControlsEnabled
@@ -269,7 +278,7 @@ begin
     Result := FControlsVisible;
 end;
 
-function TXAMLPlayerIsland.GetCurrentMedia_Duration: TTime;
+function TXAMLPlayerWrapper.GetCurrentMedia_Duration: TTime;
 begin
   if FInitialized then
     Result := FMediaPlayer.NaturalDuration.Duration / 10000 / MSecsPerDay
@@ -277,7 +286,7 @@ begin
     Result := 0;
 end;
 
-function TXAMLPlayerIsland.GetCurrentMedia_NumInPlaylist: Integer;
+function TXAMLPlayerWrapper.GetCurrentMedia_NumInPlaylist: Integer;
 begin
   if FInitialized and (FPlayList.CurrentItemIndex < MaxInt) then
     Result := FPlayList.CurrentItemIndex + 1
@@ -285,7 +294,7 @@ begin
     Result := 0;
 end;
 
-function TXAMLPlayerIsland.GetCurrentMedia_Title: String;
+function TXAMLPlayerWrapper.GetCurrentMedia_Title: String;
 begin
   if not FInitialized then
     Exit('');
@@ -304,7 +313,7 @@ begin
       (FPlayList.CurrentItem.Source as Core_IMediaSource4).Uri.Path));
 end;
 
-function TXAMLPlayerIsland.GetIsMuted: Boolean;
+function TXAMLPlayerWrapper.GetIsMuted: Boolean;
 begin
   if FInitialized then
     Result := FMediaPlayer.IsMuted
@@ -312,7 +321,7 @@ begin
     Result := FIsMuted;
 end;
 
-function TXAMLPlayerIsland.GetLoopPlayback: Boolean;
+function TXAMLPlayerWrapper.GetLoopPlayback: Boolean;
 begin
   if FInitialized then
     Result := FMediaPlayer.IsLoopingEnabled
@@ -320,7 +329,7 @@ begin
     Result := FLoopPlayback;
 end;
 
-function TXAMLPlayerIsland.GetPlaybackPosition: TTime;
+function TXAMLPlayerWrapper.GetPlaybackPosition: TTime;
 begin
   if FInitialized then
     Result := FMediaPlayer.Position.Duration / 10000 / MSecsPerDay
@@ -328,7 +337,7 @@ begin
     Result := 0;
 end;
 
-function TXAMLPlayerIsland.GetPlayListSize: Integer;
+function TXAMLPlayerWrapper.GetPlayListSize: Integer;
 begin
   if FInitialized then
     Result := (FPlayList.Items as IVector_1__Playback_IMediaPlaybackItem_Base).Size
@@ -336,7 +345,7 @@ begin
     Result := 0;
 end;
 
-function TXAMLPlayerIsland.GetStretch: TVideoStretch;
+function TXAMLPlayerWrapper.GetStretch: TVideoStretch;
 const
   MPElementToFacade: array[Winapi.UI.Xaml.Media.Stretch] of TVideoStretch = (vsOriginal, vsFill, vsFit, vsFullFit);
 begin
@@ -346,7 +355,7 @@ begin
     Result := FStretch;
 end;
 
-function TXAMLPlayerIsland.IsPaused: Boolean;
+function TXAMLPlayerWrapper.IsPaused: Boolean;
 begin
   if FInitialized then
     Result := FMediaPlayer.CurrentState = Playback_MediaPlayerState.Paused
@@ -354,7 +363,7 @@ begin
     Result := True;
 end;
 
-function TXAMLPlayerIsland.IsPlaying: Boolean;
+function TXAMLPlayerWrapper.IsPlaying: Boolean;
 begin
   if FInitialized then
     Result := FMediaPlayer.CurrentState = Playback_MediaPlayerState.Playing
@@ -362,25 +371,25 @@ begin
     Result := False;
 end;
 
-procedure TXAMLPlayerIsland.Next;
+procedure TXAMLPlayerWrapper.Next;
 begin
   if FInitialized and (GetPlayListSize > 0) then
     FPlayList.MoveNext;
 end;
 
-procedure TXAMLPlayerIsland.Pause;
+procedure TXAMLPlayerWrapper.Pause;
 begin
   if FInitialized then
     FMediaPlayer.Pause;
 end;
 
-procedure TXAMLPlayerIsland.Play;
+procedure TXAMLPlayerWrapper.Play;
 begin
   if FInitialized then
     FMediaPlayer.Play;
 end;
 
-procedure TXAMLPlayerIsland.PlayDirectory(ADirectory, AFileMask: String);
+procedure TXAMLPlayerWrapper.PlayDirectory(ADirectory, AFileMask: String);
 begin
   FFileName := ADirectory + AFileMask;
 
@@ -398,13 +407,13 @@ begin
   end;
 end;
 
-procedure TXAMLPlayerIsland.Previous;
+procedure TXAMLPlayerWrapper.Previous;
 begin
   if FInitialized and (GetPlayListSize > 0) then
     FPlayList.MovePrevious;
 end;
 
-procedure TXAMLPlayerIsland.SetControlsVisible(const Value: Boolean);
+procedure TXAMLPlayerWrapper.SetControlsVisible(const Value: Boolean);
 begin
   if FInitialized then
     FMPElement.AreTransportControlsEnabled := Value
@@ -412,7 +421,7 @@ begin
     FControlsVisible := Value;
 end;
 
-procedure TXAMLPlayerIsland.SetFileName(const Value: string);
+procedure TXAMLPlayerWrapper.SetFileName(const Value: string);
 begin
   FFileName := Value;
 
@@ -424,7 +433,7 @@ begin
   end;
 end;
 
-procedure TXAMLPlayerIsland.SetIsMuted(const Value: Boolean);
+procedure TXAMLPlayerWrapper.SetIsMuted(const Value: Boolean);
 begin
   if FInitialized then
     FMediaPlayer.IsMuted := Value
@@ -432,7 +441,7 @@ begin
     FIsMuted := Value;
 end;
 
-procedure TXAMLPlayerIsland.SetLoopPlayback(const Value: Boolean);
+procedure TXAMLPlayerWrapper.SetLoopPlayback(const Value: Boolean);
 begin
   if FInitialized then
     FMediaPlayer.IsLoopingEnabled := Value
@@ -440,7 +449,7 @@ begin
     FLoopPlayback := Value;
 end;
 
-procedure TXAMLPlayerIsland.SetPlaybackPosition(const Value: TTime);
+procedure TXAMLPlayerWrapper.SetPlaybackPosition(const Value: TTime);
 var
   TS: TimeSpan;
 begin
@@ -451,7 +460,7 @@ begin
   end;
 end;
 
-procedure TXAMLPlayerIsland.SetStretch(const Value: TVideoStretch);
+procedure TXAMLPlayerWrapper.SetStretch(const Value: TVideoStretch);
 const
   FacadeToMPElement: array[TVideoStretch] of Winapi.UI.Xaml.Media.Stretch = (Winapi.UI.Xaml.Media.Stretch.None,
     Winapi.UI.Xaml.Media.Stretch.Fill, Winapi.UI.Xaml.Media.Stretch.Uniform, Winapi.UI.Xaml.Media.Stretch.UniformToFill);
@@ -462,7 +471,7 @@ begin
     FStretch := Value;
 end;
 
-procedure TXAMLPlayerIsland.StateChangeHandler;
+procedure TXAMLPlayerWrapper.StateChangeHandler;
 begin
   case FMediaPlayer.CurrentState of
     Playback_MediaPlayerState.Playing: DoStateChange(psPlaying);
@@ -471,7 +480,7 @@ begin
   end;
 end;
 
-procedure TXAMLPlayerIsland.Stop;
+procedure TXAMLPlayerWrapper.Stop;
 begin
   if FInitialized then
   begin
@@ -480,7 +489,45 @@ begin
   end;
 end;
 
-procedure TXAMLPlayerIsland.UpdateParentHandle(AParent, ATopParent: HWND);
+{ TXAMLIsland }
+
+constructor TXAMLIsland.Create(APositionGetter: TPlayerPositionRequest);
+begin
+  FPositionRequest := APositionGetter;
+end;
+
+destructor TXAMLIsland.Destroy;
+begin
+  Detach;
+  FElement := nil;
+
+  inherited;
+end;
+
+procedure TXAMLIsland.Detach;
+begin
+  FHostHandle := 0;
+  if Assigned(FInterop) then
+    (FInterop as IClosable).Close;
+  FInterop := nil;
+end;
+
+function TXAMLIsland.GetElement: IUIElement;
+begin
+  if Assigned(FInterop) then
+    Result := (FInterop as Hosting_IDesktopWindowXamlSource).Content
+  else
+    Result := FElement;
+end;
+
+procedure TXAMLIsland.SetElement(const Value: IUIElement);
+begin
+  FElement := Value;
+  if Assigned(FInterop) then
+    (FInterop as Hosting_IDesktopWindowXamlSource).Content := Value;
+end;
+
+procedure TXAMLIsland.UpdateParentHandle(AParent, ATopParent: HWND);
 
   procedure ProtectEngineWindow;
   var
@@ -495,19 +542,13 @@ procedure TXAMLPlayerIsland.UpdateParentHandle(AParent, ATopParent: HWND);
   end;
 
 begin
-  if Assigned(FInterop) then
-  begin
-    FHostHandle := 0;
-    if Assigned(FInterop) then
-      (FInterop as IClosable).Close;
-    FInterop := nil;
-  end;
+  Detach;
 
   if Initialized and (AParent <> 0) then
   begin
     FInterop := THosting_DesktopWindowXamlSource.Create as IDesktopWindowXamlSourceNative;
     FInterop.AttachToWindow(AParent);
-    (FInterop as Hosting_IDesktopWindowXamlSource).Content := (FMPElement as IUIElement);
+    (FInterop as Hosting_IDesktopWindowXamlSource).Content := FElement;
     FHostHandle := FInterop.get_WindowHandle;
 
     // After a call to FInterop.AttachToWindow, special engine window will become a child of the parent form window
@@ -520,7 +561,7 @@ begin
   end;
 end;
 
-procedure TXAMLPlayerIsland.UpdateVisibility;
+procedure TXAMLIsland.UpdateVisibility;
 var
   Left, Top, Width, Height: Integer;
   Visible: Boolean;
