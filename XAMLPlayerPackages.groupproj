@@ -1,0 +1,60 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{16945EDC-EA71-48AE-B7A1-3689EFD76A0C}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="XAMLMediaPlayerCommon.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="XAMLMediaPlayerVCL.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="XAMLMediaPlayerFMX.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="XAMLMediaPlayerCommon">
+        <MSBuild Projects="XAMLMediaPlayerCommon.dproj"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerCommon:Clean">
+        <MSBuild Projects="XAMLMediaPlayerCommon.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerCommon:Make">
+        <MSBuild Projects="XAMLMediaPlayerCommon.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerVCL">
+        <MSBuild Projects="XAMLMediaPlayerVCL.dproj"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerVCL:Clean">
+        <MSBuild Projects="XAMLMediaPlayerVCL.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerVCL:Make">
+        <MSBuild Projects="XAMLMediaPlayerVCL.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerFMX">
+        <MSBuild Projects="XAMLMediaPlayerFMX.dproj"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerFMX:Clean">
+        <MSBuild Projects="XAMLMediaPlayerFMX.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="XAMLMediaPlayerFMX:Make">
+        <MSBuild Projects="XAMLMediaPlayerFMX.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="XAMLMediaPlayerCommon;XAMLMediaPlayerVCL;XAMLMediaPlayerFMX"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="XAMLMediaPlayerCommon:Clean;XAMLMediaPlayerVCL:Clean;XAMLMediaPlayerFMX:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="XAMLMediaPlayerCommon:Make;XAMLMediaPlayerVCL:Make;XAMLMediaPlayerFMX:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

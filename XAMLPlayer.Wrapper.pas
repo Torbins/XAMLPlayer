@@ -19,12 +19,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 }
 
-unit XAMLPlayer.Common;
+unit XAMLPlayer.Wrapper;
 
 interface
 
 uses
-  Winapi.Windows, WinAPI.CommonTypes, Winapi.UI.Xaml, Winapi.UI.Xaml.ControlsRT, Winapi.Media, Winapi.WinRT;
+  WinAPI.CommonTypes, Winapi.UI.Xaml.ControlsRT, Winapi.Media, Winapi.WinRT, XAMLPlayer.Engine;
 
 type
   TPlayerState = (psPlaying, psPaused, psStopped);
@@ -34,34 +34,6 @@ type
   TErrorType = (etUnknown, etAborted, etNetworkError, etDecodingError, etSourceNotSupported);
   TErrorHandler = procedure (AType: TErrorType; const AMesage: String) of object;
   TPlayerErrorEvent = procedure (Sender: TObject; ErrorType: TErrorType; const ErrorMesage: String) of object;
-  TPlayerPositionRequest = procedure(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer) of object;
-
-  TXAMLEngine = class
-  private
-    class var FHostingEngine: Hosting_IWindowsXamlManager;
-    class var FInitialized: Boolean;
-    class constructor Create;
-    class destructor Destroy;
-  public
-    class property Initialized: Boolean read FInitialized;
-  end;
-
-  TXAMLIsland = class(TXAMLEngine)
-  private
-    FPositionRequest: TPlayerPositionRequest;
-    FInterop: IDesktopWindowXamlSourceNative;
-    FHostHandle: HWND;
-    FElement: IUIElement;
-    function GetElement: IUIElement;
-    procedure SetElement(const Value: IUIElement);
-    procedure Detach;
-  public
-    property Element: IUIElement read GetElement write SetElement;
-    constructor Create(APositionGetter: TPlayerPositionRequest);
-    destructor Destroy; override;
-    procedure UpdateParentHandle(AParent, ATopParent: HWND);
-    procedure UpdateVisibility;
-  end;
 
   TXAMLPlayerEventHolder = class(TNoRefCountObject, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable,
       TypedEventHandler_2__Playback_IMediaPlayer__IInspectable_Delegate_Base)
@@ -139,41 +111,10 @@ type
     property OnStateChange: TPlayerStateEvent read FStateEvent write FStateEvent;
   end;
 
-resourcestring
-  SManifestWarning = 'Application manifest does not contain "maxversiontested" element!';
-
 implementation
 
 uses
-  System.SysUtils, System.IOUtils, System.DateUtils, System.Win.ComObj, System.Win.WinRT, WinAPI.Foundation,
-  Winapi.UI.Xaml.Media;
-
-const
-  SEngineWindowClass = 'Windows.UI.Core.CoreWindow';
-  SEngineWindowName = 'DesktopWindowXamlSource';
-
-{ TXAMLEngine }
-
-class constructor TXAMLEngine.Create;
-begin
-  if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
-  begin
-    try
-      FHostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
-      FInitialized := True;
-    except
-      on e: EOleException do
-        FInitialized := False;
-    end;
-  end
-  else
-    FInitialized := False;
-end;
-
-class destructor TXAMLEngine.Destroy;
-begin
-  FHostingEngine := nil;
-end;
+  System.SysUtils, System.IOUtils, System.DateUtils, System.Win.WinRT, WinAPI.Foundation, Winapi.UI.Xaml.Media;
 
 { TXAMLPlayerEventHolder }
 
@@ -214,7 +155,7 @@ constructor TXAMLPlayerWrapper.Create(AIsland: TXAMLIsland);
 begin
   FStretch := vsFit;
 
-  if FInitialized then
+  if Initialized then
   begin
     FMPElement := TMediaPlayerElement.Create;
     FMediaPlayer := TPlayback_MediaPlayer.Create;
@@ -236,7 +177,7 @@ destructor TXAMLPlayerWrapper.Destroy;
 begin
   Stop;
 
-  if FInitialized then
+  if Initialized then
   begin
     FMediaPlayer.remove_CurrentStateChanged(FStateEventHolder.Token);
     FStateEventHolder.Free;
@@ -272,7 +213,7 @@ end;
 
 function TXAMLPlayerWrapper.GetControlsVisible: Boolean;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMPElement.AreTransportControlsEnabled
   else
     Result := FControlsVisible;
@@ -280,7 +221,7 @@ end;
 
 function TXAMLPlayerWrapper.GetCurrentMedia_Duration: TTime;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMediaPlayer.NaturalDuration.Duration / 10000 / MSecsPerDay
   else
     Result := 0;
@@ -288,7 +229,7 @@ end;
 
 function TXAMLPlayerWrapper.GetCurrentMedia_NumInPlaylist: Integer;
 begin
-  if FInitialized and (FPlayList.CurrentItemIndex < MaxInt) then
+  if Initialized and (FPlayList.CurrentItemIndex < MaxInt) then
     Result := FPlayList.CurrentItemIndex + 1
   else
     Result := 0;
@@ -296,7 +237,7 @@ end;
 
 function TXAMLPlayerWrapper.GetCurrentMedia_Title: String;
 begin
-  if not FInitialized then
+  if not Initialized then
     Exit('');
 
   if not Assigned(FPlayList.CurrentItem) then
@@ -315,7 +256,7 @@ end;
 
 function TXAMLPlayerWrapper.GetIsMuted: Boolean;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMediaPlayer.IsMuted
   else
     Result := FIsMuted;
@@ -323,7 +264,7 @@ end;
 
 function TXAMLPlayerWrapper.GetLoopPlayback: Boolean;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMediaPlayer.IsLoopingEnabled
   else
     Result := FLoopPlayback;
@@ -331,7 +272,7 @@ end;
 
 function TXAMLPlayerWrapper.GetPlaybackPosition: TTime;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMediaPlayer.Position.Duration / 10000 / MSecsPerDay
   else
     Result := 0;
@@ -339,7 +280,7 @@ end;
 
 function TXAMLPlayerWrapper.GetPlayListSize: Integer;
 begin
-  if FInitialized then
+  if Initialized then
     Result := (FPlayList.Items as IVector_1__Playback_IMediaPlaybackItem_Base).Size
   else
     Result := 0;
@@ -349,7 +290,7 @@ function TXAMLPlayerWrapper.GetStretch: TVideoStretch;
 const
   MPElementToFacade: array[Winapi.UI.Xaml.Media.Stretch] of TVideoStretch = (vsOriginal, vsFill, vsFit, vsFullFit);
 begin
-  if FInitialized then
+  if Initialized then
     Result := MPElementToFacade[FMPElement.Stretch_]
   else
     Result := FStretch;
@@ -357,7 +298,7 @@ end;
 
 function TXAMLPlayerWrapper.IsPaused: Boolean;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMediaPlayer.CurrentState = Playback_MediaPlayerState.Paused
   else
     Result := True;
@@ -365,7 +306,7 @@ end;
 
 function TXAMLPlayerWrapper.IsPlaying: Boolean;
 begin
-  if FInitialized then
+  if Initialized then
     Result := FMediaPlayer.CurrentState = Playback_MediaPlayerState.Playing
   else
     Result := False;
@@ -373,19 +314,19 @@ end;
 
 procedure TXAMLPlayerWrapper.Next;
 begin
-  if FInitialized and (GetPlayListSize > 0) then
+  if Initialized and (GetPlayListSize > 0) then
     FPlayList.MoveNext;
 end;
 
 procedure TXAMLPlayerWrapper.Pause;
 begin
-  if FInitialized then
+  if Initialized then
     FMediaPlayer.Pause;
 end;
 
 procedure TXAMLPlayerWrapper.Play;
 begin
-  if FInitialized then
+  if Initialized then
     FMediaPlayer.Play;
 end;
 
@@ -393,7 +334,7 @@ procedure TXAMLPlayerWrapper.PlayDirectory(ADirectory, AFileMask: String);
 begin
   FFileName := ADirectory + AFileMask;
 
-  if FInitialized then
+  if Initialized then
   begin
     for var FileName in TDirectory.GetFiles(ADirectory, AFileMask) do
     begin
@@ -409,13 +350,13 @@ end;
 
 procedure TXAMLPlayerWrapper.Previous;
 begin
-  if FInitialized and (GetPlayListSize > 0) then
+  if Initialized and (GetPlayListSize > 0) then
     FPlayList.MovePrevious;
 end;
 
 procedure TXAMLPlayerWrapper.SetControlsVisible(const Value: Boolean);
 begin
-  if FInitialized then
+  if Initialized then
     FMPElement.AreTransportControlsEnabled := Value
   else
     FControlsVisible := Value;
@@ -425,7 +366,7 @@ procedure TXAMLPlayerWrapper.SetFileName(const Value: string);
 begin
   FFileName := Value;
 
-  if FInitialized then
+  if Initialized then
   begin
     FMPElement.Source := (TCore_MediaSource.CreateFromUri(TUri.CreateUri(TWindowsString.Create(Value))) as
       Playback_IMediaPlaybackSource);
@@ -435,7 +376,7 @@ end;
 
 procedure TXAMLPlayerWrapper.SetIsMuted(const Value: Boolean);
 begin
-  if FInitialized then
+  if Initialized then
     FMediaPlayer.IsMuted := Value
   else
     FIsMuted := Value;
@@ -443,7 +384,7 @@ end;
 
 procedure TXAMLPlayerWrapper.SetLoopPlayback(const Value: Boolean);
 begin
-  if FInitialized then
+  if Initialized then
     FMediaPlayer.IsLoopingEnabled := Value
   else
     FLoopPlayback := Value;
@@ -453,7 +394,7 @@ procedure TXAMLPlayerWrapper.SetPlaybackPosition(const Value: TTime);
 var
   TS: TimeSpan;
 begin
-  if FInitialized then
+  if Initialized then
   begin
     TS.Duration := TimeToMilliseconds(Value) * 10000;
     FMediaPlayer.Position := TS;
@@ -465,7 +406,7 @@ const
   FacadeToMPElement: array[TVideoStretch] of Winapi.UI.Xaml.Media.Stretch = (Winapi.UI.Xaml.Media.Stretch.None,
     Winapi.UI.Xaml.Media.Stretch.Fill, Winapi.UI.Xaml.Media.Stretch.Uniform, Winapi.UI.Xaml.Media.Stretch.UniformToFill);
 begin
-  if FInitialized then
+  if Initialized then
     FMPElement.Stretch_ := FacadeToMPElement[Value]
   else
     FStretch := Value;
@@ -482,105 +423,10 @@ end;
 
 procedure TXAMLPlayerWrapper.Stop;
 begin
-  if FInitialized then
+  if Initialized then
   begin
     FMediaPlayer.SetUriSource(nil);
     DoStateChange(psStopped);
-  end;
-end;
-
-{ TXAMLIsland }
-
-constructor TXAMLIsland.Create(APositionGetter: TPlayerPositionRequest);
-begin
-  FPositionRequest := APositionGetter;
-end;
-
-destructor TXAMLIsland.Destroy;
-begin
-  Detach;
-  FElement := nil;
-
-  inherited;
-end;
-
-procedure TXAMLIsland.Detach;
-begin
-  FHostHandle := 0;
-  if Assigned(FInterop) then
-    (FInterop as IClosable).Close;
-  FInterop := nil;
-end;
-
-function TXAMLIsland.GetElement: IUIElement;
-begin
-  if Assigned(FInterop) then
-    Result := (FInterop as Hosting_IDesktopWindowXamlSource).Content
-  else
-    Result := FElement;
-end;
-
-procedure TXAMLIsland.SetElement(const Value: IUIElement);
-begin
-  FElement := Value;
-  if Assigned(FInterop) then
-    (FInterop as Hosting_IDesktopWindowXamlSource).Content := Value;
-end;
-
-procedure TXAMLIsland.UpdateParentHandle(AParent, ATopParent: HWND);
-
-  procedure ProtectEngineWindow;
-  var
-    EW: HWND;
-  begin
-    if ATopParent <> 0 then
-    begin
-      EW := FindWindowEx(ATopParent, 0, SEngineWindowClass, SEngineWindowName);
-      if EW <> 0 then
-        Winapi.Windows.SetParent(EW, GetDesktopWindow);
-    end;
-  end;
-
-begin
-  Detach;
-
-  if Initialized and (AParent <> 0) then
-  begin
-    FInterop := THosting_DesktopWindowXamlSource.Create as IDesktopWindowXamlSourceNative;
-    FInterop.AttachToWindow(AParent);
-    (FInterop as Hosting_IDesktopWindowXamlSource).Content := FElement;
-    FHostHandle := FInterop.get_WindowHandle;
-
-    // After a call to FInterop.AttachToWindow, special engine window will become a child of the parent form window
-    // When form handle needs to be recreated (type of border has changed, styles enabled, etc.) engine window will be
-    // destroyed and XAML integration broken
-    // It is possible to prevent this by turning engine window back into top-level window
-    ProtectEngineWindow;
-
-    UpdateVisibility;
-  end;
-end;
-
-procedure TXAMLIsland.UpdateVisibility;
-var
-  Left, Top, Width, Height: Integer;
-  Visible: Boolean;
-begin
-  if FInitialized and (FHostHandle > 0) then
-  begin
-    Visible := False;
-    Left := 0;
-    Top := 0;
-    Width := 0;
-    Height := 0;
-
-    if Assigned(FPositionRequest) then
-      FPositionRequest(Visible, Left, Top, Width, Height);
-
-    if Visible then
-      SetWindowPos(FHostHandle, 0, Left, Top, Width, Height, SWP_SHOWWINDOW + SWP_NOACTIVATE)
-    else
-      SetWindowPos(FHostHandle, 0, Left, Top, Width, Height, SWP_HIDEWINDOW + SWP_NOACTIVATE);
   end;
 end;
 

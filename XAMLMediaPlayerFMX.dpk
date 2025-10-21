@@ -19,7 +19,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 }
 
-package XAMLMediaPlayer;
+package XAMLMediaPlayerFMX;
 
 {$R *.res}
 {$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
@@ -30,35 +30,33 @@ package XAMLMediaPlayer;
 {$EXTENDEDSYNTAX ON}
 {$IMPORTEDDATA ON}
 {$IOCHECKS ON}
-{$LOCALSYMBOLS ON}
+{$LOCALSYMBOLS OFF}
 {$LONGSTRINGS ON}
 {$OPENSTRINGS ON}
-{$OPTIMIZATION OFF}
-{$OVERFLOWCHECKS ON}
-{$RANGECHECKS ON}
-{$REFERENCEINFO ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
 {$SAFEDIVIDE OFF}
-{$STACKFRAMES ON}
+{$STACKFRAMES OFF}
 {$TYPEDADDRESS OFF}
 {$VARSTRINGCHECKS ON}
 {$WRITEABLECONST OFF}
 {$MINENUMSIZE 1}
 {$IMAGEBASE $400000}
-{$DEFINE DEBUG}
+{$DEFINE RELEASE}
 {$ENDIF IMPLICITBUILDING}
-{$DESCRIPTION 'Media Player component that uses XAML Islands'}
+{$DESCRIPTION 'FMX version of Media Player component that uses XAML Islands'}
 {$LIBSUFFIX AUTO}
 {$IMPLICITBUILD ON}
 
 requires
   rtl,
-  vcl,
   fmx,
-  winuirtl;
+  XAMLMediaPlayerCommon;
 
 contains
-  XAMLPlayer.VCL in 'XAMLPlayer.VCL.pas',
-  XAMLPlayer.FMX in 'XAMLPlayer.FMX.pas',
-  XAMLPlayer.Common in 'XAMLPlayer.Common.pas';
+  XAMLPlayer.FMXHost in 'XAMLPlayer.FMXHost.pas',
+  XAMLPlayer.FMXPlayer in 'XAMLPlayer.FMXPlayer.pas';
 
 end.
