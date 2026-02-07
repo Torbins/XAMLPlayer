@@ -35,8 +35,8 @@ type
   TErrorHandler = procedure (AType: TErrorType; const AMesage: String) of object;
   TPlayerErrorEvent = procedure (Sender: TObject; ErrorType: TErrorType; const ErrorMesage: String) of object;
 
-  TXAMLPlayerEventHolder = class(TNoRefCountObject, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable,
-      TypedEventHandler_2__Playback_IMediaPlayer__IInspectable_Delegate_Base)
+  TXAMLPlayerEventHolder = class(TNoRefCountObject, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable
+      {$IF CompilerVersion <= 36.0}, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable_Delegate_Base{$IFEND})
     FHandler: THandler;
     procedure Invoke(sender: Playback_IMediaPlayer; args: IInspectable); safecall;
   public
@@ -45,8 +45,8 @@ type
   end;
 
   TXAMLPlayerErrorEventHolder = class(TNoRefCountObject,
-      TypedEventHandler_2__Playback_IMediaPlayer__Playback_IMediaPlayerFailedEventArgs,
-      TypedEventHandler_2__Playback_IMediaPlayer__Playback_IMediaPlayerFailedEventArgs_Delegate_Base)
+      TypedEventHandler_2__Playback_IMediaPlayer__Playback_IMediaPlayerFailedEventArgs{$IF CompilerVersion <= 36.0},
+      TypedEventHandler_2__Playback_IMediaPlayer__Playback_IMediaPlayerFailedEventArgs_Delegate_Base{$IFEND})
     FHandler: TErrorHandler;
     procedure Invoke(sender: Playback_IMediaPlayer; args: Playback_IMediaPlayerFailedEventArgs); safecall;
   public
@@ -281,7 +281,8 @@ end;
 function TXAMLPlayerWrapper.GetPlayListSize: Integer;
 begin
   if Initialized then
-    Result := (FPlayList.Items as IVector_1__Playback_IMediaPlaybackItem_Base).Size
+    Result := (FPlayList.Items as {$IF CompilerVersion <= 36.0}IVector_1__Playback_IMediaPlaybackItem_Base{$ELSE}
+      IVector_1__Playback_IMediaPlaybackItem{$IFEND}).Size
   else
     Result := 0;
 end;
@@ -340,7 +341,8 @@ begin
     begin
       var Uri: IUriRuntimeClass := TUri.CreateUri(TWindowsString.Create(FileName));
       var Item: Playback_IMediaPlaybackItem := TPlayback_MediaPlaybackItem.Create(TCore_MediaSource.CreateFromUri(Uri));
-      (FPlayList.Items as IVector_1__Playback_IMediaPlaybackItem_Base).Append(Item);
+      (FPlayList.Items as {$IF CompilerVersion <= 36.0}IVector_1__Playback_IMediaPlaybackItem_Base{$ELSE}
+        IVector_1__Playback_IMediaPlaybackItem{$IFEND}).Append(Item);
     end;
 
     FMPElement.Source := FPlayList as Playback_IMediaPlaybackSource;
