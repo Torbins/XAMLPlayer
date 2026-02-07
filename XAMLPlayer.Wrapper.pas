@@ -366,13 +366,21 @@ end;
 
 procedure TXAMLPlayerWrapper.SetFileName(const Value: string);
 begin
-  FFileName := TPath.GetFullPath(Value);
-
-  if Initialized then
+  if Value <> '' then
   begin
-    FMPElement.Source := (TCore_MediaSource.CreateFromUri(TUri.CreateUri(TWindowsString.Create(FFileName))) as
-      Playback_IMediaPlaybackSource);
-    Play;
+    FFileName := TPath.GetFullPath(Value);
+
+    if Initialized then
+    begin
+      FMPElement.Source := (TCore_MediaSource.CreateFromUri(TUri.CreateUri(TWindowsString.Create(FFileName))) as
+        Playback_IMediaPlaybackSource);
+      Play;
+    end;
+  end
+  else
+  begin
+    FFileName := '';
+    Stop;
   end;
 end;
 
