@@ -244,7 +244,7 @@ begin
   begin
     if Assigned(FMPElement.Source) then
       Exit(TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
-        (FMPElement.Source as Core_IMediaSource4).Uri.Path)))
+        (FMPElement.Source as Core_IMediaSource4).Uri.RawUri)))
     else
       Exit('');
   end;
@@ -256,7 +256,7 @@ begin
       (FPlayList.CurrentItem as Playback_IMediaPlaybackItem2).GetDisplayProperties.VideoProperties.Title);
   if Result = '' then
     Result := TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
-      (FPlayList.CurrentItem.Source as Core_IMediaSource4).Uri.Path));
+      (FPlayList.CurrentItem.Source as Core_IMediaSource4).Uri.RawUri));
 end;
 
 function TXAMLPlayerWrapper.GetIsMuted: Boolean;
