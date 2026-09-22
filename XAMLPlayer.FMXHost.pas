@@ -153,7 +153,7 @@ begin
     Canvas.FillRect(LocalRect, 1);
     Canvas.Fill.Color := claWhite;
     Canvas.Font.Size := 12;
-    Canvas.FillText(LocalRect, SManifestWarning, {WordWrap} True, 1, [], TTextAlign.Center);
+    Canvas.FillText(LocalRect, FIsland.ErrorMessage, {WordWrap} True, 1, [], TTextAlign.Center);
   finally
     Canvas.EndScene;
   end;
