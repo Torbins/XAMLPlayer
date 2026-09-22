@@ -411,7 +411,7 @@ var
 begin
   if Initialized then
   begin
-    TS.Duration := TimeToMilliseconds(Value) * 10000;
+    TS.Duration := Round(Abs(TimeOf(Value)) * MSecsPerDay * 10000);
     FMediaPlayer.Position := TS;
   end;
 end;
