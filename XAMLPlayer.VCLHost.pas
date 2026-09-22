@@ -98,7 +98,7 @@ begin
   Canvas.Font.Color := clWhite;
   Canvas.Font.Size := 12;
   TempRect := ClientRect;
-  TempStr := FIsland.ErrorMessage;
+  TempStr := SManifestWarning;
   Canvas.TextRect(TempRect, TempStr, [tfCenter, tfVerticalCenter, tfWordBreak]);
 end;
 

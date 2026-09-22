@@ -24,241 +24,109 @@ unit XAMLPlayer.Engine;
 interface
 
 uses
-  System.SysUtils, System.Classes, System.SyncObjs, Winapi.Windows, Winapi.Messages, Winapi.UI.Xaml, Winapi.SystemRT;
+  Winapi.Windows, Winapi.UI.Xaml;
 
 type
   TPositionRequest = procedure(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer) of object;
-  TRunState = (rsInitializing, rsRunning, rsEnded, rsError);
 
-  TXAMLIsland = class(TThread)
+  TXAMLEngine = class
   private
-    FController: IDispatcherQueueController;
+    class var FHostingEngine: Hosting_IWindowsXamlManager;
+    class var FInitialized: Boolean;
+    class constructor Create;
+    class destructor Destroy;
+  public
+    class property Initialized: Boolean read FInitialized;
+  end;
+
+  TXAMLIsland = class(TXAMLEngine)
+  private
     FPositionRequest: TPositionRequest;
-    FInterop: Hosting_IDesktopWindowXamlSource;
+    FInterop: IDesktopWindowXamlSourceNative;
     FHostHandle: HWND;
-    FIslandHandle: HWND;
     FElement: IUIElement;
-    FStarted: TLightweightEvent;
-    FState: TRunState;
-    FSyncWindow: HWND;
-    FErrorMessage: String;
     function GetElement: IUIElement;
-    procedure SyncProcedure(var Message: TMessage);
-    procedure InternalQueue(const AProc: TProc; ASynchronous: Boolean);
     procedure SetElement(const Value: IUIElement);
     procedure Detach;
-  protected
-    procedure Execute; override;
   public
     property Element: IUIElement read GetElement write SetElement;
-    property ErrorMessage: String read FErrorMessage;
     constructor Create(APositionGetter: TPositionRequest);
     destructor Destroy; override;
-    function Initialized: Boolean;
-    procedure BlockingQueue(Proc: TProc);
-    procedure BlockingSync(Proc: TProc);
-    function LazyQueue(Proc: TProc): Boolean;
-    function LazySync(Proc: TProc): Boolean;
     procedure UpdateParentHandle(AParent, ATopParent: HWND);
     procedure UpdateVisibility;
   end;
 
+resourcestring
+  SManifestWarning = 'Application manifest does not contain "maxversiontested" element!';
+
 implementation
 
 uses
-  System.Win.ComObj, WinAPI.Foundation, Winapi.WinRT;
+  System.SysUtils, System.Win.ComObj, WinAPI.Foundation;
 
 const
   SEngineWindowClass = 'Windows.UI.Core.CoreWindow';
   SEngineWindowName = 'DesktopWindowXamlSource';
-  UM_QUEUE = WM_USER + 1;
-  UM_SYNC = WM_USER + 2;
-  SIslandWindowClass = 'XAMLIslandWindow';
 
-resourcestring
-  SManifestWarning = 'Application manifest does not contain "maxversiontested" element!';
+{ TXAMLEngine }
+
+class constructor TXAMLEngine.Create;
+begin
+  if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
+  begin
+    try
+      FHostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
+      FInitialized := True;
+    except
+      on e: EOleException do
+        FInitialized := False;
+    end;
+  end
+  else
+    FInitialized := False;
+end;
+
+class destructor TXAMLEngine.Destroy;
+begin
+  FHostingEngine := nil;
+end;
 
 { TXAMLIsland }
 
 constructor TXAMLIsland.Create(APositionGetter: TPositionRequest);
 begin
-  FErrorMessage := SManifestWarning;
   FPositionRequest := APositionGetter;
-  FStarted := TLightweightEvent.Create;
-  inherited Create;
 end;
 
 destructor TXAMLIsland.Destroy;
 begin
-  LazySync(procedure
-  begin
-    FElement := nil;
-  end);
   Detach;
+  FElement := nil;
 
-  LazyQueue(procedure
-  begin
-    PostQuitMessage(0);
-  end);
-
-  ShutdownThread;
-  FStarted.Free;
   inherited;
 end;
 
-procedure TXAMLIsland.Execute;
-
-  function RegisterHostWindowClass: ATOM;
-  var
-    WC: WNDCLASS;
-  begin
-    FillMemory(@WC, SizeOf(WC), 0);
-
-    WC.lpfnWndProc    := @DefWindowProc;
-    WC.hInstance      := HInstance;
-    WC.hCursor        := LoadCursor(0, IDC_ARROW);
-    WC.lpszClassName  := SIslandWindowClass;
-
-    Result := RegisterClass(WC);
-  end;
-
-var
-  Msg: TMsg;
-  HostingEngine: Hosting_IWindowsXamlManager;
+procedure TXAMLIsland.Detach;
 begin
-  if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
-  try
-    try
-      OleCheck(RoInitialize(RO_INIT_SINGLETHREADED));
-
-      FController := TDispatcherQueueController.CreateOnDedicatedThread;
-      HostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
-
-      RegisterHostWindowClass;
-
-      FSyncWindow := AllocateHWnd(SyncProcedure);
-      FState := rsRunning;
-      FStarted.SetEvent;
-
-      while GetMessage(Msg, 0, 0, 0) and not Terminated do
-      begin
-        TranslateMessage(Msg);
-        DispatchMessage(Msg);
-      end;
-    finally
-      FState := rsEnded;
-      if FSyncWindow > 0 then
-        DeallocateHWnd(FSyncWindow);
-      FSyncWindow := 0;
-
-      if Assigned(HostingEngine) then
-        (HostingEngine as IClosable).Close;
-      HostingEngine := nil;
-
-      if Assigned(FController) then
-        FController.ShutdownQueueAsync.GetResults;
-      FController := nil;
-
-      RoUninitialize;
-    end;
-  except
-    on e: Exception do
-    begin
-      FState := rsError;
-      FStarted.SetEvent;
-      FErrorMessage := FErrorMessage + sLineBreak + e.Message;
-    end;
-  end;
-end;
-
-function TXAMLIsland.Initialized: Boolean;
-begin
-  Result := FStarted.IsSet and (FState = rsRunning);
+  FHostHandle := 0;
+  if Assigned(FInterop) then
+    (FInterop as IClosable).Close;
+  FInterop := nil;
 end;
 
 function TXAMLIsland.GetElement: IUIElement;
 begin
-  Result := FElement;
+  if Assigned(FInterop) then
+    Result := (FInterop as Hosting_IDesktopWindowXamlSource).Content
+  else
+    Result := FElement;
 end;
 
 procedure TXAMLIsland.SetElement(const Value: IUIElement);
 begin
   FElement := Value;
   if Assigned(FInterop) then
-    FInterop.Content := Value;
-end;
-
-procedure TXAMLIsland.InternalQueue(const AProc: TProc; ASynchronous: Boolean);
-var
-  P: TProc;
-  Intf: IInterface absolute P;
-  ProcParam: WPARAM absolute P;
-begin
-  P := AProc;
-
-  Intf._AddRef;
-  if ASynchronous then
-    SendMessage(FSyncWindow, UM_SYNC, ProcParam, 0)
-  else
-    PostMessage(FSyncWindow, UM_QUEUE, ProcParam, 0);
-end;
-
-function TXAMLIsland.LazyQueue(Proc: TProc): Boolean;
-begin
-  Result := Initialized;
-  if Result then
-    InternalQueue(Proc, {ASynchronous} False);
-end;
-
-function TXAMLIsland.LazySync(Proc: TProc): Boolean;
-begin
-  Result := Initialized;
-  if Result then
-    InternalQueue(Proc, {ASynchronous} True);
-end;
-
-procedure TXAMLIsland.BlockingQueue(Proc: TProc);
-begin
-  FStarted.WaitFor;
-  if FState = rsRunning then
-    InternalQueue(Proc, {ASynchronous} False);
-end;
-
-procedure TXAMLIsland.BlockingSync(Proc: TProc);
-begin
-  FStarted.WaitFor;
-  if FState = rsRunning then
-    InternalQueue(Proc, {ASynchronous} True);
-end;
-
-procedure TXAMLIsland.SyncProcedure(var Message: TMessage);
-var
-  Proc: TProc;
-  Intf: IInterface absolute Proc;
-begin
-  if (Message.Msg = UM_QUEUE) or (Message.Msg = UM_SYNC) then
-  begin
-    Proc  := TProc(Message.WParam);
-    Intf._Release;
-
-    Proc;
-  end;
-end;
-
-procedure TXAMLIsland.Detach;
-begin
-  LazySync(procedure
-  begin
-    if Assigned(FInterop) then
-      FInterop.Content := nil;
-    FInterop := nil;
-
-    if FIslandHandle > 0 then
-      DestroyWindow(FIslandHandle);
-  end);
-
-  FIslandHandle := 0;
-  FHostHandle := 0;
+    (FInterop as Hosting_IDesktopWindowXamlSource).Content := Value;
 end;
 
 procedure TXAMLIsland.UpdateParentHandle(AParent, ATopParent: HWND);
@@ -278,21 +146,12 @@ procedure TXAMLIsland.UpdateParentHandle(AParent, ATopParent: HWND);
 begin
   Detach;
 
-  if AParent > 0 then
+  if Initialized and (AParent <> 0) then
   begin
-    BlockingSync(procedure
-    var
-      WndManager: IDesktopWindowXamlSourceNative;
-    begin
-      FInterop := THosting_DesktopWindowXamlSource.Create;
-      WndManager := FInterop as IDesktopWindowXamlSourceNative;
-
-      FIslandHandle := CreateWindow(SIslandWindowClass, '', WS_CHILD, 0, 0, 10, 10, AParent, 0, HInstance, nil);
-
-      WndManager.AttachToWindow(FIslandHandle);
-      FInterop.Content := FElement;
-      FHostHandle := WndManager.get_WindowHandle;
-    end);
+    FInterop := THosting_DesktopWindowXamlSource.Create as IDesktopWindowXamlSourceNative;
+    FInterop.AttachToWindow(AParent);
+    (FInterop as Hosting_IDesktopWindowXamlSource).Content := FElement;
+    FHostHandle := FInterop.get_WindowHandle;
 
     // After a call to FInterop.AttachToWindow, special engine window will become a child of the parent form window
     // When form handle needs to be recreated (type of border has changed, styles enabled, etc.) engine window will be
@@ -308,9 +167,8 @@ procedure TXAMLIsland.UpdateVisibility;
 var
   Left, Top, Width, Height: Integer;
   Visible: Boolean;
-  ShowCmd: Cardinal;
 begin
-  if Initialized and (FHostHandle > 0) then
+  if FInitialized and (FHostHandle > 0) then
   begin
     Visible := False;
     Left := 0;
@@ -322,12 +180,9 @@ begin
       FPositionRequest(Visible, Left, Top, Width, Height);
 
     if Visible then
-      ShowCmd := SWP_SHOWWINDOW
+      SetWindowPos(FHostHandle, 0, Left, Top, Width, Height, SWP_SHOWWINDOW + SWP_NOACTIVATE)
     else
-      ShowCmd := SWP_HIDEWINDOW;
-
-    SetWindowPos(FIslandHandle, 0, Left, Top, Width, Height, ShowCmd + SWP_NOACTIVATE);
-    SetWindowPos(FHostHandle, 0, 0, 0, Width, Height, ShowCmd + SWP_NOACTIVATE);
+      SetWindowPos(FHostHandle, 0, Left, Top, Width, Height, SWP_HIDEWINDOW + SWP_NOACTIVATE);
   end;
 end;
 
