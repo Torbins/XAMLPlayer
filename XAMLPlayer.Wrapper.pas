@@ -241,8 +241,13 @@ begin
     Exit('');
 
   if not Assigned(FPlayList.CurrentItem) then
-    Exit(TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
-      (FMPElement.Source as Core_IMediaSource4).Uri.Path)));
+  begin
+    if Assigned(FMPElement.Source) then
+      Exit(TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
+        (FMPElement.Source as Core_IMediaSource4).Uri.Path)))
+    else
+      Exit('');
+  end;
 
   Result := TWindowsString.HStringToString(
     (FPlayList.CurrentItem as Playback_IMediaPlaybackItem2).GetDisplayProperties.MusicProperties.Title);
