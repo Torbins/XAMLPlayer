@@ -158,7 +158,7 @@ begin
   FStretch := vsFit;
   FIsland := AIsland;
 
-  FIsland.BlockingSync(procedure
+  FIsland.XAMLSync(procedure
   begin
     FMPElement := TMediaPlayerElement.Create;
     FMediaPlayer := TPlayback_MediaPlayer.Create;
@@ -181,7 +181,7 @@ begin
   FDestroying := True;
   Stop;
 
-  FIsland.LazySync(procedure
+  FIsland.XAMLSync(procedure
   begin
     FMediaPlayer.remove_CurrentStateChanged(FStateEventHolder.Token);
     FStateEventHolder.Free;
@@ -225,7 +225,7 @@ function TXAMLPlayerWrapper.GetControlsVisible: Boolean;
 var
   Res: Boolean;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMPElement.AreTransportControlsEnabled;
     end)
@@ -239,7 +239,7 @@ function TXAMLPlayerWrapper.GetCurrentMedia_Duration: TTime;
 var
   Res: TTime;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMediaPlayer.NaturalDuration.Duration / 10000 / MSecsPerDay;
     end)
@@ -253,7 +253,7 @@ function TXAMLPlayerWrapper.GetCurrentMedia_NumInPlaylist: Integer;
 var
   Res: Integer;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FPlayList.CurrentItemIndex + 1;
     end)
@@ -267,7 +267,7 @@ function TXAMLPlayerWrapper.GetCurrentMedia_Title: String;
 var
   Res: String;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       if not Assigned(FPlayList.CurrentItem) then
       begin
@@ -299,7 +299,7 @@ function TXAMLPlayerWrapper.GetIsMuted: Boolean;
 var
   Res: Boolean;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMediaPlayer.IsMuted;
     end)
@@ -313,7 +313,7 @@ function TXAMLPlayerWrapper.GetLoopPlayback: Boolean;
 var
   Res: Boolean;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMediaPlayer.IsLoopingEnabled;
     end)
@@ -327,7 +327,7 @@ function TXAMLPlayerWrapper.GetPlaybackPosition: TTime;
 var
   Res: TTime;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMediaPlayer.Position.Duration / 10000 / MSecsPerDay;
     end)
@@ -341,7 +341,7 @@ function TXAMLPlayerWrapper.GetPlayListSize: Integer;
 var
   Res: Integer;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := (FPlayList.Items as {$IF CompilerVersion <= 36.0}IVector_1__Playback_IMediaPlaybackItem_Base{$ELSE}
         IVector_1__Playback_IMediaPlaybackItem{$IFEND}).Size;
@@ -358,7 +358,7 @@ const
 var
   Res: TVideoStretch;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := MPElementToFacade[FMPElement.Stretch_];
     end)
@@ -372,7 +372,7 @@ function TXAMLPlayerWrapper.IsPaused: Boolean;
 var
   Res: Boolean;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMediaPlayer.CurrentState = Playback_MediaPlayerState.Paused;
     end)
@@ -386,7 +386,7 @@ function TXAMLPlayerWrapper.IsPlaying: Boolean;
 var
   Res: Boolean;
 begin
-  if FIsland.LazySync(procedure
+  if FIsland.XAMLSync(procedure
     begin
       Res := FMediaPlayer.CurrentState = Playback_MediaPlayerState.Playing;
     end)
@@ -399,7 +399,7 @@ end;
 procedure TXAMLPlayerWrapper.Next;
 begin
   if GetPlayListSize > 0 then
-    FIsland.LazyQueue(procedure
+    FIsland.XAMLQueue(procedure
     begin
       FPlayList.MoveNext;
     end);
@@ -407,7 +407,7 @@ end;
 
 procedure TXAMLPlayerWrapper.Pause;
 begin
-  FIsland.LazyQueue(procedure
+  FIsland.XAMLQueue(procedure
   begin
     FMediaPlayer.Pause;
   end);
@@ -415,7 +415,7 @@ end;
 
 procedure TXAMLPlayerWrapper.Play;
 begin
-  FIsland.LazyQueue(procedure
+  FIsland.XAMLQueue(procedure
   begin
     FMediaPlayer.Play;
   end);
@@ -425,7 +425,7 @@ procedure TXAMLPlayerWrapper.PlayDirectory(ADirectory, AFileMask: String);
 begin
   FFileName := ADirectory + AFileMask;
 
-  FIsland.LazyQueue(procedure
+  FIsland.XAMLQueue(procedure
   begin
     for var FileName in TDirectory.GetFiles(ADirectory, AFileMask) do
     begin
@@ -444,7 +444,7 @@ end;
 procedure TXAMLPlayerWrapper.Previous;
 begin
   if GetPlayListSize > 0 then
-    FIsland.LazyQueue(procedure
+    FIsland.XAMLQueue(procedure
     begin
       FPlayList.MovePrevious;
     end);
@@ -452,7 +452,7 @@ end;
 
 procedure TXAMLPlayerWrapper.SetControlsVisible(const Value: Boolean);
 begin
-  if not FIsland.LazySync(procedure
+  if not FIsland.XAMLSync(procedure
     begin
       FMPElement.AreTransportControlsEnabled := Value;
     end)
@@ -466,7 +466,7 @@ begin
   begin
     FFileName := TPath.GetFullPath(Value);
 
-    FIsland.LazyQueue(procedure
+    FIsland.XAMLQueue(procedure
     begin
       FMPElement.Source := (TCore_MediaSource.CreateFromUri(TUri.CreateUri(TWindowsString.Create(FFileName))) as
         Playback_IMediaPlaybackSource);
@@ -482,7 +482,7 @@ end;
 
 procedure TXAMLPlayerWrapper.SetIsMuted(const Value: Boolean);
 begin
-  if not FIsland.LazySync(procedure
+  if not FIsland.XAMLSync(procedure
     begin
       FMediaPlayer.IsMuted := Value;
     end)
@@ -492,7 +492,7 @@ end;
 
 procedure TXAMLPlayerWrapper.SetLoopPlayback(const Value: Boolean);
 begin
-  if not FIsland.LazySync(procedure
+  if not FIsland.XAMLSync(procedure
     begin
       FMediaPlayer.IsLoopingEnabled := Value;
     end)
@@ -506,7 +506,7 @@ var
 begin
   TS.Duration := Round(Abs(TimeOf(Value)) * MSecsPerDay * 10000);
 
-  FIsland.LazySync(procedure
+  FIsland.XAMLSync(procedure
   begin
     FMediaPlayer.Position := TS;
   end);
@@ -517,7 +517,7 @@ const
   FacadeToMPElement: array[TVideoStretch] of Winapi.UI.Xaml.Media.Stretch = (Winapi.UI.Xaml.Media.Stretch.None,
     Winapi.UI.Xaml.Media.Stretch.Fill, Winapi.UI.Xaml.Media.Stretch.Uniform, Winapi.UI.Xaml.Media.Stretch.UniformToFill);
 begin
-  if not FIsland.LazySync(procedure
+  if not FIsland.XAMLSync(procedure
     begin
       FMPElement.Stretch_ := FacadeToMPElement[Value];
     end)
@@ -536,7 +536,7 @@ end;
 
 procedure TXAMLPlayerWrapper.Stop;
 begin
-  FIsland.LazySync(procedure
+  FIsland.XAMLSync(procedure
   begin
     FMediaPlayer.SetUriSource(nil);
     DoStateChange(psStopped);

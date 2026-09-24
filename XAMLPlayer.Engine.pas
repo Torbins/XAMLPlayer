@@ -56,10 +56,8 @@ type
     constructor Create(APositionGetter: TPositionRequest);
     destructor Destroy; override;
     function Initialized: Boolean;
-    procedure BlockingQueue(Proc: TProc);
-    procedure BlockingSync(Proc: TProc);
-    function LazyQueue(Proc: TProc): Boolean;
-    function LazySync(Proc: TProc): Boolean;
+    function XAMLQueue(Proc: TProc): Boolean;
+    function XAMLSync(Proc: TProc): Boolean;
     procedure UpdateParentHandle(AParent, ATopParent: HWND);
     procedure UpdateVisibility;
   end;
@@ -91,13 +89,13 @@ end;
 
 destructor TXAMLIsland.Destroy;
 begin
-  LazySync(procedure
+  XAMLSync(procedure
   begin
     FElement := nil;
   end);
   Detach;
 
-  LazySync(procedure
+  XAMLSync(procedure
   begin
     if Assigned(FHostingEngine) then
       (FHostingEngine as IClosable).Close;
@@ -108,7 +106,7 @@ begin
     FController := nil;
   end);
 
-  LazyQueue(procedure
+  XAMLQueue(procedure
   begin
     PostQuitMessage(0);
   end);
@@ -169,7 +167,7 @@ begin
     begin
       FState := rsError;
       FStarted.SetEvent;
-      FErrorMessage := FErrorMessage + sLineBreak + e.Message;
+      FErrorMessage := FErrorMessage + sLineBreak + e.ClassName + ': ' + e.Message;
     end;
   end;
 end;
@@ -206,31 +204,19 @@ begin
     PostMessage(FSyncWindow, UM_QUEUE, ProcParam, 0);
 end;
 
-function TXAMLIsland.LazyQueue(Proc: TProc): Boolean;
+function TXAMLIsland.XAMLQueue(Proc: TProc): Boolean;
 begin
-  Result := Initialized;
+  FStarted.WaitFor;
+  Result := FState = rsRunning;
   if Result then
     InternalQueue(Proc, {ASynchronous} False);
 end;
 
-function TXAMLIsland.LazySync(Proc: TProc): Boolean;
+function TXAMLIsland.XAMLSync(Proc: TProc): Boolean;
 begin
-  Result := Initialized;
+  FStarted.WaitFor;
+  Result := FState = rsRunning;
   if Result then
-    InternalQueue(Proc, {ASynchronous} True);
-end;
-
-procedure TXAMLIsland.BlockingQueue(Proc: TProc);
-begin
-  FStarted.WaitFor;
-  if FState = rsRunning then
-    InternalQueue(Proc, {ASynchronous} False);
-end;
-
-procedure TXAMLIsland.BlockingSync(Proc: TProc);
-begin
-  FStarted.WaitFor;
-  if FState = rsRunning then
     InternalQueue(Proc, {ASynchronous} True);
 end;
 
@@ -250,7 +236,7 @@ end;
 
 procedure TXAMLIsland.Detach;
 begin
-  LazySync(procedure
+  XAMLSync(procedure
   begin
     if Assigned(FInterop) then
       FInterop.Content := nil;
@@ -283,7 +269,7 @@ begin
 
   if AParent > 0 then
   begin
-    BlockingSync(procedure
+    XAMLSync(procedure
     var
       WndManager: IDesktopWindowXamlSourceNative;
     begin
