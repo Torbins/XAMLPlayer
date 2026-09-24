@@ -24,7 +24,7 @@ unit XAMLPlayer.Engine;
 interface
 
 uses
-  Winapi.Windows, Winapi.UI.Xaml;
+  Winapi.Windows, Winapi.UI.Xaml, System.Win.WinRT;
 
 type
   TPositionRequest = procedure(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer) of object;
@@ -62,7 +62,7 @@ resourcestring
 implementation
 
 uses
-  System.SysUtils, System.Win.ComObj, WinAPI.Foundation;
+  System.SysUtils, System.Win.ComObj, WinAPI.Foundation, Winapi.WinRT;
 
 const
   SEngineWindowClass = 'Windows.UI.Core.CoreWindow';
@@ -72,6 +72,7 @@ const
 
 class constructor TXAMLEngine.Create;
 begin
+  RoInitType := RO_INIT_SINGLETHREADED;
   if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
   begin
     try
