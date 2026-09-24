@@ -271,9 +271,11 @@ begin
     begin
       if not Assigned(FPlayList.CurrentItem) then
       begin
-        Res := (TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
-          (FMPElement.Source as Core_IMediaSource4).Uri.Path)));
-        Exit;
+        if Assigned(FMPElement.Source) then
+          Exit(TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
+            (FMPElement.Source as Core_IMediaSource4).Uri.RawUri)))
+        else
+          Exit('');
       end;
 
       Res := TWindowsString.HStringToString(
@@ -283,7 +285,7 @@ begin
           (FPlayList.CurrentItem as Playback_IMediaPlaybackItem2).GetDisplayProperties.VideoProperties.Title);
       if Res = '' then
         Res := TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
-          (FPlayList.CurrentItem.Source as Core_IMediaSource4).Uri.Path));
+          (FPlayList.CurrentItem.Source as Core_IMediaSource4).Uri.RawUri));
     end)
   then
     Result := Res
@@ -500,7 +502,7 @@ procedure TXAMLPlayerWrapper.SetPlaybackPosition(const Value: TTime);
 var
   TS: TimeSpan;
 begin
-  TS.Duration := TimeToMilliseconds(Value) * 10000;
+  TS.Duration := Round(Abs(TimeOf(Value)) * MSecsPerDay * 10000);
 
   FIsland.LazySync(procedure
   begin

@@ -1,0 +1,47 @@
+object fMain: TfMain
+  Left = 0
+  Top = 0
+  Caption = 'Media Player'
+  ClientHeight = 480
+  ClientWidth = 640
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object XAMLMediaPlayer: TXAMLMediaPlayer
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    Position.X = 8.000000000000000000
+    Position.Y = 8.000000000000000000
+    Size.Width = 624.000000000000000000
+    Size.Height = 433.000000000000000000
+    Size.PlatformDefault = False
+    ControlsVisible = True
+  end
+  object bOpen: TButton
+    Anchors = [akLeft, akBottom]
+    Position.X = 8.000000000000000000
+    Position.Y = 449.000000000000000000
+    TabOrder = 1
+    Text = 'Open File...'
+    OnClick = bOpenClick
+  end
+  object lWarning: TLabel
+    Anchors = [akLeft, akRight, akBottom]
+    StyledSettings = [Family, Style]
+    Position.X = 96.000000000000000000
+    Position.Y = 441.000000000000000000
+    Size.Width = 536.000000000000000000
+    Size.Height = 39.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 15.000000000000000000
+    TextSettings.FontColor = claCrimson
+    Text = 
+      'If you click "Cast" button, application will crash or hang durin' +
+      'g shutdown!'
+    TabOrder = 3
+  end
+  object OpenDialog: TOpenDialog
+    Left = 48
+    Top = 40
+  end
+end
