@@ -76,12 +76,14 @@ const
 
 resourcestring
   SManifestWarning = 'Application manifest does not contain "maxversiontested" element!';
+  SWindowsVersionWarning = 'Minimum supported Windows version is Windows 10 1903 (19H1)';
+  SInitializing = 'Initializing...';
 
 { TXAMLIsland }
 
 constructor TXAMLIsland.Create(APositionGetter: TPositionRequest);
 begin
-  FErrorMessage := SManifestWarning;
+  FErrorMessage := SInitializing;
   FPositionRequest := APositionGetter;
   FStarted := TLightweightEvent.Create;
   inherited Create;
@@ -135,8 +137,10 @@ procedure TXAMLIsland.Execute;
 var
   Msg: TMsg;
 begin
+  FErrorMessage := SWindowsVersionWarning;
   if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
   try
+    FErrorMessage := SInitializing;
     try
       OleCheck(RoInitialize(RO_INIT_SINGLETHREADED));
 
@@ -167,7 +171,7 @@ begin
     begin
       FState := rsError;
       FStarted.SetEvent;
-      FErrorMessage := FErrorMessage + sLineBreak + e.ClassName + ': ' + e.Message;
+      FErrorMessage := SManifestWarning + sLineBreak + e.ClassName + ': ' + e.Message;
     end;
   end;
 end;
