@@ -34,9 +34,11 @@ type
     class var FHostingEngine: Hosting_IWindowsXamlManager;
     class var FInitialized: Boolean;
     class var FInstanceCount: Integer;
+    class var FErrorMessage: String;
     class constructor Create;
   public
     class property Initialized: Boolean read FInitialized;
+    class property ErrorMessage: String read FErrorMessage;
     class function NewInstance: TObject; override;
     procedure FreeInstance; override;
   end;
@@ -58,9 +60,6 @@ type
     procedure UpdateVisibility;
   end;
 
-resourcestring
-  SManifestWarning = 'Application manifest does not contain "maxversiontested" element!';
-
 implementation
 
 uses
@@ -69,6 +68,11 @@ uses
 const
   SEngineWindowClass = 'Windows.UI.Core.CoreWindow';
   SEngineWindowName = 'DesktopWindowXamlSource';
+
+resourcestring
+  SManifestWarning = 'Application manifest does not contain "maxversiontested" element!';
+  SWindowsVersionWarning = 'Minimum supported Windows version is Windows 10 1903 (19H1)';
+  SInitializing = 'Initializing...';
 
 { TXAMLEngine }
 
@@ -99,14 +103,19 @@ begin
 
   if FInstanceCount = 1 then
   begin
+    FErrorMessage := SWindowsVersionWarning;
     if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
     begin
+      FErrorMessage := SInitializing;
       try
         FHostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
         FInitialized := True;
       except
         on e: EOleException do
+        begin
           FInitialized := False;
+          FErrorMessage := SManifestWarning + sLineBreak + e.Message;
+        end;
       end;
     end
     else
