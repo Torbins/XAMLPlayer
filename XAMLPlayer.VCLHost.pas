@@ -37,6 +37,7 @@ type
     procedure Paint; override;
     procedure ReqPosition(var AVisible: Boolean; var ALeft, ATop, AWidth, AHeight: Integer);
   public
+    property Island: TXAMLIsland read FIsland;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure SetBounds(ALeft, ATop, AWidth, AHeight: Integer); override;
