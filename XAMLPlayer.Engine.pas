@@ -33,6 +33,7 @@ type
   TXAMLIsland = class(TThread)
   private
     FController: IDispatcherQueueController;
+    FHostingEngine: Hosting_IWindowsXamlManager;
     FPositionRequest: TPositionRequest;
     FInterop: Hosting_IDesktopWindowXamlSource;
     FHostHandle: HWND;
@@ -96,6 +97,17 @@ begin
   end);
   Detach;
 
+  LazySync(procedure
+  begin
+    if Assigned(FHostingEngine) then
+      (FHostingEngine as IClosable).Close;
+    FHostingEngine := nil;
+
+    if Assigned(FController) then
+      FController.ShutdownQueueAsync.GetResults;
+    FController := nil;
+  end);
+
   LazyQueue(procedure
   begin
     PostQuitMessage(0);
@@ -124,7 +136,6 @@ procedure TXAMLIsland.Execute;
 
 var
   Msg: TMsg;
-  HostingEngine: Hosting_IWindowsXamlManager;
 begin
   if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
   try
@@ -132,7 +143,7 @@ begin
       OleCheck(RoInitialize(RO_INIT_SINGLETHREADED));
 
       FController := TDispatcherQueueController.CreateOnDedicatedThread;
-      HostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
+      FHostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
 
       RegisterHostWindowClass;
 
@@ -140,7 +151,7 @@ begin
       FState := rsRunning;
       FStarted.SetEvent;
 
-      while GetMessage(Msg, 0, 0, 0) and not Terminated do
+      while GetMessage(Msg, 0, 0, 0) do
       begin
         TranslateMessage(Msg);
         DispatchMessage(Msg);
@@ -150,14 +161,6 @@ begin
       if FSyncWindow > 0 then
         DeallocateHWnd(FSyncWindow);
       FSyncWindow := 0;
-
-      if Assigned(HostingEngine) then
-        (HostingEngine as IClosable).Close;
-      HostingEngine := nil;
-
-      if Assigned(FController) then
-        FController.ShutdownQueueAsync.GetResults;
-      FController := nil;
 
       RoUninitialize;
     end;
