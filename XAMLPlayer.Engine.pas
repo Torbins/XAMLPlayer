@@ -33,10 +33,12 @@ type
   private
     class var FHostingEngine: Hosting_IWindowsXamlManager;
     class var FInitialized: Boolean;
+    class var FInstanceCount: Integer;
     class constructor Create;
-    class destructor Destroy;
   public
     class property Initialized: Boolean read FInitialized;
+    class function NewInstance: TObject; override;
+    procedure FreeInstance; override;
   end;
 
   TXAMLIsland = class(TXAMLEngine)
@@ -73,23 +75,43 @@ const
 class constructor TXAMLEngine.Create;
 begin
   RoInitType := RO_INIT_SINGLETHREADED;
-  if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
-  begin
-    try
-      FHostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
-      FInitialized := True;
-    except
-      on e: EOleException do
-        FInitialized := False;
-    end;
-  end
-  else
-    FInitialized := False;
 end;
 
-class destructor TXAMLEngine.Destroy;
+procedure TXAMLEngine.FreeInstance;
 begin
-  FHostingEngine := nil;
+  Dec(FInstanceCount);
+
+  if FInstanceCount = 0 then
+  begin
+    if Assigned(FHostingEngine) then
+      (FHostingEngine as IClosable).Close;
+    FHostingEngine := nil;
+  end;
+
+  inherited;
+end;
+
+class function TXAMLEngine.NewInstance: TObject;
+begin
+  Result := inherited;
+
+  Inc(FInstanceCount);
+
+  if FInstanceCount = 1 then
+  begin
+    if TOSVersion.Check(10) and (TOSVersion.Build >= 18362) then
+    begin
+      try
+        FHostingEngine := THosting_WindowsXamlManager.InitializeForCurrentThread;
+        FInitialized := True;
+      except
+        on e: EOleException do
+          FInitialized := False;
+      end;
+    end
+    else
+      FInitialized := False;
+  end;
 end;
 
 { TXAMLIsland }
