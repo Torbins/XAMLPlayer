@@ -72,15 +72,12 @@ begin
   inherited;
 
   FIsland := TXAMLIsland.Create(ReqPosition);
-
-  if FIsland.Initialized then
-    TMessageManager.DefaultManager.SubscribeToMessage(TAfterCreateFormHandle, CreateFormWnd);
+  TMessageManager.DefaultManager.SubscribeToMessage(TAfterCreateFormHandle, CreateFormWnd);
 end;
 
 destructor TXAMLHost.Destroy;
 begin
   TMessageManager.DefaultManager.Unsubscribe(TAfterCreateFormHandle, CreateFormWnd);
-
   FIsland.Free;
 
   inherited;
