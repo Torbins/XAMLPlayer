@@ -272,10 +272,12 @@ begin
       if not Assigned(FPlayList.CurrentItem) then
       begin
         if Assigned(FMPElement.Source) then
-          Exit(TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
-            (FMPElement.Source as Core_IMediaSource4).Uri.RawUri)))
+          Res := TPath.GetFileNameWithoutExtension(TWindowsString.HStringToString(
+            (FMPElement.Source as Core_IMediaSource4).Uri.RawUri))
         else
-          Exit('');
+          Res := '';
+
+        Exit;
       end;
 
       Res := TWindowsString.HStringToString(
