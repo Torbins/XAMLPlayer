@@ -70,6 +70,7 @@ type
     FStateEventHolder: TXAMLPlayerEventHolder;
     FEndedEventHolder: TXAMLPlayerEventHolder;
     FErrorEventHolder: TXAMLPlayerErrorEventHolder;
+    FDestroying: Boolean;
     function GetControlsVisible: Boolean;
     function GetIsMuted: Boolean;
     function GetLoopPlayback: Boolean;
@@ -177,6 +178,7 @@ end;
 
 destructor TXAMLPlayerWrapper.Destroy;
 begin
+  FDestroying := True;
   Stop;
 
   FIsland.LazySync(procedure
@@ -198,7 +200,7 @@ end;
 
 procedure TXAMLPlayerWrapper.DoStateChange(AState: TPlayerState);
 begin
-  if Assigned(FStateEvent) then
+  if Assigned(FStateEvent) and not FDestroying then
     TThread.Queue(nil, procedure
     begin
       FStateEvent(Self, AState);
@@ -212,7 +214,7 @@ end;
 
 procedure TXAMLPlayerWrapper.ErrorHandler(AType: TErrorType; const AMesage: String);
 begin
-  if Assigned(FErrorEvent) then
+  if Assigned(FErrorEvent) and not FDestroying then
     TThread.Queue(nil, procedure
     begin
       FErrorEvent(Self, AType, AMesage);

@@ -60,7 +60,6 @@ end;
 
 destructor TXAMLMediaPlayer.Destroy;
 begin
-  FPlayerWrapper.Stop;
   FPlayerWrapper.Free;
 
   inherited;
