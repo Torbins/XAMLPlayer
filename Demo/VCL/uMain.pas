@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics, Vcl.ExtCtrls,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, XAMLPlayer.VCLHost, XAMLPlayer.VCLPlayer, XAMLPlayer.Wrapper,
-  Vcl.ComCtrls;
+  Vcl.ComCtrls, System.Types, Vcl.Menus;
 
 type
   TfMain = class(TForm)
@@ -21,6 +21,7 @@ type
     lTime: TLabel;
     tTimeUpdate: TTimer;
     tAction: TTimer;
+    PopupMenu: TPopupMenu;
     procedure bMuteClick(Sender: TObject);
     procedure bOpenClick(Sender: TObject);
     procedure bPauseClick(Sender: TObject);
@@ -30,6 +31,8 @@ type
     procedure EnableUpdateTimer(Sender: TObject);
     procedure tbPositionTracking(Sender: TObject);
     procedure tTimeUpdateTimer(Sender: TObject);
+    procedure XAMLMediaPlayerClick(Sender: TObject);
+    procedure XAMLMediaPlayerContextPopup(Sender: TObject; Position: TPointF; var Handled: Boolean);
     procedure XAMLMediaPlayerStateChange(Sender: TObject; State: TPlayerState);
   private
     { Private declarations }
@@ -116,6 +119,24 @@ begin
       XAMLMediaPlayer.GetCurrentMedia_Duration), tbPosition.Max)
   else
     tbPosition.Position := 0;
+end;
+
+procedure TfMain.XAMLMediaPlayerClick(Sender: TObject);
+begin
+  if XAMLMediaPlayer.IsPlaying then
+    XAMLMediaPlayer.Pause
+  else
+    XAMLMediaPlayer.Play;
+end;
+
+procedure TfMain.XAMLMediaPlayerContextPopup(Sender: TObject; Position: TPointF; var Handled: Boolean);
+var
+  ScreenPoint: TPoint;
+begin
+  ScreenPoint := Point(Round(Position.X), Round(Position.Y));
+  ScreenPoint := XAMLMediaPlayer.ClientToScreen(ScaleValue(ScreenPoint));
+  PopupMenu.Popup(ScreenPoint.X, ScreenPoint.Y);
+  Handled := True;
 end;
 
 procedure TfMain.XAMLMediaPlayerStateChange(Sender: TObject; State: TPlayerState);

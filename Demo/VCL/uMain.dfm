@@ -128,6 +128,8 @@ object fMain: TfMain
     Width = 628
     Height = 341
     Align = alClient
+    OnClick = XAMLMediaPlayerClick
+    OnContextPopup = XAMLMediaPlayerContextPopup
     OnStateChange = XAMLMediaPlayerStateChange
   end
   object OpenDialog: TOpenDialog
@@ -145,6 +147,10 @@ object fMain: TfMain
     Interval = 200
     OnTimer = CheckParams
     Left = 224
+    Top = 40
+  end
+  object PopupMenu: TPopupMenu
+    Left = 296
     Top = 40
   end
 end

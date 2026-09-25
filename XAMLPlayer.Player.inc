@@ -3,7 +3,10 @@ type
   TXAMLMediaPlayer = class(TXAMLHost)
   private
     FPlayerWrapper: TXAMLPlayerWrapper;
+    function GetClickEvent: TNotifyEvent;
+    function GetContextPopupEvent: TRightTappedEvent;
     function GetControlsVisible: Boolean;
+    function GetDblClickEvent: TNotifyEvent;
     function GetErrorEvent: TPlayerErrorEvent;
     function GetFileName: string;
     function GetIsMuted: Boolean;
@@ -11,7 +14,10 @@ type
     function GetPlaybackPosition: TTime;
     function GetStateEvent: TPlayerStateEvent;
     function GetStretch: TVideoStretch;
+    procedure SetClickEvent(const Value: TNotifyEvent);
+    procedure SetContextPopupEvent(const Value: TRightTappedEvent);
     procedure SetControlsVisible(const Value: Boolean);
+    procedure SetDblClickEvent(const Value: TNotifyEvent);
     procedure SetErrorEvent(const Value: TPlayerErrorEvent);
     procedure SetFileName(const Value: string);
     procedure SetIsMuted(const Value: Boolean);
@@ -41,6 +47,9 @@ type
     property IsMuted: Boolean read GetIsMuted write SetIsMuted default False;
     property LoopPlayback: Boolean read GetLoopPlayback write SetLoopPlayback default False;
     property Stretch: TVideoStretch read GetStretch write SetStretch default vsFit;
+    property OnClick: TNotifyEvent read GetClickEvent write SetClickEvent;
+    property OnContextPopup: TRightTappedEvent read GetContextPopupEvent write SetContextPopupEvent;
+    property OnDblClick: TNotifyEvent read GetDblClickEvent write SetDblClickEvent;
     property OnError: TPlayerErrorEvent read GetErrorEvent write SetErrorEvent;
     property OnStateChange: TPlayerStateEvent read GetStateEvent write SetStateEvent;
   end;
@@ -66,6 +75,16 @@ begin
   inherited;
 end;
 
+function TXAMLMediaPlayer.GetClickEvent: TNotifyEvent;
+begin
+  Result := FPlayerWrapper.OnClick;
+end;
+
+function TXAMLMediaPlayer.GetContextPopupEvent: TRightTappedEvent;
+begin
+  Result := FPlayerWrapper.OnContextPopup;
+end;
+
 function TXAMLMediaPlayer.GetControlsVisible: Boolean;
 begin
   Result := FPlayerWrapper.ControlsVisible;
@@ -84,6 +103,11 @@ end;
 function TXAMLMediaPlayer.GetCurrentMedia_Title: String;
 begin
   Result := FPlayerWrapper.GetCurrentMedia_Title;
+end;
+
+function TXAMLMediaPlayer.GetDblClickEvent: TNotifyEvent;
+begin
+  Result := FPlayerWrapper.OnDblClick;
 end;
 
 function TXAMLMediaPlayer.GetErrorEvent: TPlayerErrorEvent;
@@ -161,9 +185,24 @@ begin
   FPlayerWrapper.Previous;
 end;
 
+procedure TXAMLMediaPlayer.SetClickEvent(const Value: TNotifyEvent);
+begin
+  FPlayerWrapper.OnClick := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetContextPopupEvent(const Value: TRightTappedEvent);
+begin
+  FPlayerWrapper.OnContextPopup := Value;
+end;
+
 procedure TXAMLMediaPlayer.SetControlsVisible(const Value: Boolean);
 begin
   FPlayerWrapper.ControlsVisible := Value;
+end;
+
+procedure TXAMLMediaPlayer.SetDblClickEvent(const Value: TNotifyEvent);
+begin
+  FPlayerWrapper.OnDblClick := Value;
 end;
 
 procedure TXAMLMediaPlayer.SetErrorEvent(const Value: TPlayerErrorEvent);
