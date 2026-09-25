@@ -5,7 +5,8 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics, Vcl.ExtCtrls,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, XAMLPlayer.VCLHost, XAMLPlayer.VCLPlayer, XAMLPlayer.Wrapper,
-  Vcl.ComCtrls, System.Types, Vcl.Menus;
+  Vcl.ComCtrls, System.Types, Vcl.Menus, Vcl.PlatformDefaultStyleActnCtrls, System.Actions, Vcl.ActnList, Vcl.ActnMan,
+  Vcl.ActnPopup, Vcl.StdActns;
 
 type
   TfMain = class(TForm)
@@ -14,19 +15,31 @@ type
     bOpen: TButton;
     bPlay: TButton;
     bPause: TButton;
-    OpenDialog: TOpenDialog;
     bStop: TButton;
     bMute: TButton;
     tbPosition: TTrackBar;
     lTime: TLabel;
     tTimeUpdate: TTimer;
     tAction: TTimer;
-    PopupMenu: TPopupMenu;
-    procedure bMuteClick(Sender: TObject);
-    procedure bOpenClick(Sender: TObject);
-    procedure bPauseClick(Sender: TObject);
-    procedure bPlayClick(Sender: TObject);
-    procedure bStopClick(Sender: TObject);
+    ActionManager: TActionManager;
+    FileOpen: TFileOpen;
+    FileExit: TFileExit;
+    aPlay: TAction;
+    aPause: TAction;
+    aStop: TAction;
+    aMute: TAction;
+    PopupActionBar: TPopupActionBar;
+    Open1: TMenuItem;
+    Play1: TMenuItem;
+    Pause1: TMenuItem;
+    Stop1: TMenuItem;
+    Mute1: TMenuItem;
+    Exit1: TMenuItem;
+    procedure aMuteClick(Sender: TObject);
+    procedure FileOpenClick(Sender: TObject);
+    procedure aPauseClick(Sender: TObject);
+    procedure aPlayClick(Sender: TObject);
+    procedure aStopClick(Sender: TObject);
     procedure CheckParams(Sender: TObject);
     procedure EnableUpdateTimer(Sender: TObject);
     procedure tbPositionTracking(Sender: TObject);
@@ -50,37 +63,38 @@ implementation
 uses
   System.Math;
 
-procedure TfMain.bMuteClick(Sender: TObject);
+procedure TfMain.aMuteClick(Sender: TObject);
 begin
   if XAMLMediaPlayer.IsMuted then
   begin
+    aMute.Caption := '🔇 Mute';
     bMute.Caption := '🔇';
     XAMLMediaPlayer.IsMuted := False;
   end
   else
   begin
+    aMute.Caption := '🔉 Unmute';
     bMute.Caption := '🔉';
     XAMLMediaPlayer.IsMuted := True;
   end;
 end;
 
-procedure TfMain.bOpenClick(Sender: TObject);
+procedure TfMain.FileOpenClick(Sender: TObject);
 begin
-  if OpenDialog.Execute then
-    XAMLMediaPlayer.FileName := OpenDialog.FileName;
+  XAMLMediaPlayer.FileName := FileOpen.Dialog.FileName;
 end;
 
-procedure TfMain.bPauseClick(Sender: TObject);
+procedure TfMain.aPauseClick(Sender: TObject);
 begin
   XAMLMediaPlayer.Pause;
 end;
 
-procedure TfMain.bPlayClick(Sender: TObject);
+procedure TfMain.aPlayClick(Sender: TObject);
 begin
   XAMLMediaPlayer.Play;
 end;
 
-procedure TfMain.bStopClick(Sender: TObject);
+procedure TfMain.aStopClick(Sender: TObject);
 begin
   XAMLMediaPlayer.Stop;
 end;
@@ -135,7 +149,7 @@ var
 begin
   ScreenPoint := Point(Round(Position.X), Round(Position.Y));
   ScreenPoint := XAMLMediaPlayer.ClientToScreen(ScaleValue(ScreenPoint));
-  PopupMenu.Popup(ScreenPoint.X, ScreenPoint.Y);
+  PopupActionBar.Popup(ScreenPoint.X, ScreenPoint.Y);
   Handled := True;
 end;
 
@@ -150,9 +164,9 @@ begin
         Caption := Caption + 'Playing';
         tTimeUpdate.Enabled := True;
         tbPosition.Enabled := True;
-        bPause.Enabled := True;
-        bStop.Enabled := True;
-        bMute.Enabled := True;
+        aPause.Enabled := True;
+        aStop.Enabled := True;
+        aMute.Enabled := True;
       end;
     psPaused:
       begin
@@ -166,9 +180,9 @@ begin
         lTime.Caption := '';
         tbPosition.Position := 0;
         tbPosition.Enabled := False;
-        bPause.Enabled := False;
-        bStop.Enabled := False;
-        bMute.Enabled := False;
+        aPause.Enabled := False;
+        aStop.Enabled := False;
+        aMute.Enabled := False;
       end;
   end;
 end;

@@ -38,15 +38,15 @@ object fMain: TfMain
       Top = 6
       Width = 65
       Height = 25
-      Caption = 'Open'
+      Action = FileOpen
       TabOrder = 0
-      OnClick = bOpenClick
     end
     object bPlay: TButton
       Left = 79
       Top = 6
       Width = 25
       Height = 25
+      Action = aPlay
       Caption = #9654
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
@@ -55,15 +55,14 @@ object fMain: TfMain
       Font.Style = []
       ParentFont = False
       TabOrder = 1
-      OnClick = bPlayClick
     end
     object bPause: TButton
       Left = 110
       Top = 6
       Width = 25
       Height = 25
+      Action = aPause
       Caption = #9208
-      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -16
@@ -71,15 +70,14 @@ object fMain: TfMain
       Font.Style = []
       ParentFont = False
       TabOrder = 2
-      OnClick = bPauseClick
     end
     object bStop: TButton
       Left = 141
       Top = 6
       Width = 25
       Height = 25
+      Action = aStop
       Caption = #9209
-      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -16
@@ -87,16 +85,15 @@ object fMain: TfMain
       Font.Style = []
       ParentFont = False
       TabOrder = 3
-      OnClick = bStopClick
     end
     object bMute: TButton
       Left = 595
       Top = 6
       Width = 25
       Height = 25
+      Action = aMute
       Anchors = [akTop, akRight]
       Caption = #55357#56583
-      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -16
@@ -104,7 +101,6 @@ object fMain: TfMain
       Font.Style = []
       ParentFont = False
       TabOrder = 4
-      OnClick = bMuteClick
     end
     object tbPosition: TTrackBar
       Left = 172
@@ -132,25 +128,81 @@ object fMain: TfMain
     OnContextPopup = XAMLMediaPlayerContextPopup
     OnStateChange = XAMLMediaPlayerStateChange
   end
-  object OpenDialog: TOpenDialog
-    Left = 64
-    Top = 40
-  end
   object tTimeUpdate: TTimer
     Enabled = False
     Interval = 100
     OnTimer = tTimeUpdateTimer
-    Left = 152
+    Left = 144
     Top = 40
   end
   object tAction: TTimer
     Interval = 200
     OnTimer = CheckParams
-    Left = 224
+    Left = 216
     Top = 40
   end
-  object PopupMenu: TPopupMenu
+  object ActionManager: TActionManager
+    Left = 48
+    Top = 40
+    StyleName = 'Platform Default'
+    object FileOpen: TFileOpen
+      Category = 'File'
+      Caption = '&Open...'
+      Hint = 'Open|Opens an existing file'
+      ImageIndex = 7
+      ShortCut = 16463
+      OnAccept = FileOpenClick
+    end
+    object FileExit: TFileExit
+      Category = 'File'
+      Caption = 'E&xit'
+      Hint = 'Exit|Quits the application'
+      ImageIndex = 43
+    end
+    object aPlay: TAction
+      Category = 'Playback'
+      Caption = #9654' Play'
+      OnExecute = aPlayClick
+    end
+    object aPause: TAction
+      Category = 'Playback'
+      Caption = #9208' Pause'
+      Enabled = False
+      OnExecute = aPauseClick
+    end
+    object aStop: TAction
+      Category = 'Playback'
+      Caption = #9209' Stop'
+      Enabled = False
+      OnExecute = aStopClick
+    end
+    object aMute: TAction
+      Category = 'Audio'
+      Caption = #55357#56583' Mute'
+      Enabled = False
+      OnExecute = aMuteClick
+    end
+  end
+  object PopupActionBar: TPopupActionBar
     Left = 296
     Top = 40
+    object Open1: TMenuItem
+      Action = FileOpen
+    end
+    object Play1: TMenuItem
+      Action = aPlay
+    end
+    object Pause1: TMenuItem
+      Action = aPause
+    end
+    object Stop1: TMenuItem
+      Action = aStop
+    end
+    object Mute1: TMenuItem
+      Action = aMute
+    end
+    object Exit1: TMenuItem
+      Action = FileExit
+    end
   end
 end
