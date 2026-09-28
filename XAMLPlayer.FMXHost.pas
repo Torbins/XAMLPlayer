@@ -45,6 +45,7 @@ type
     procedure UpdateParent;
     procedure VisibleChanged; override;
   public
+    property Island: TXAMLIsland read FIsland;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
   published

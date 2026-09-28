@@ -24,7 +24,8 @@ unit XAMLPlayer.Wrapper;
 interface
 
 uses
-  WinAPI.CommonTypes, Winapi.UI.Xaml.ControlsRT, Winapi.Media, Winapi.WinRT, XAMLPlayer.Engine;
+  System.Types, System.Classes, WinAPI.CommonTypes, Winapi.UI.Xaml.ControlsRT, Winapi.Media, Winapi.WinRT,
+  XAMLPlayer.Engine;
 
 type
   TPlayerState = (psPlaying, psPaused, psStopped);
@@ -34,6 +35,9 @@ type
   TErrorType = (etUnknown, etAborted, etNetworkError, etDecodingError, etSourceNotSupported);
   TErrorHandler = procedure (AType: TErrorType; const AMesage: String) of object;
   TPlayerErrorEvent = procedure (Sender: TObject; ErrorType: TErrorType; const ErrorMesage: String) of object;
+  TTappedHandler = function (): Boolean of object;
+  TRightTappedEvent = procedure (Sender: TObject; Position: TPointF; var Handled: Boolean) of object;
+  TRightTappedHandler = function (APosition: TPointF): Boolean of object;
 
   TXAMLPlayerEventHolder = class(TNoRefCountObject, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable
       {$IF CompilerVersion <= 36.0}, TypedEventHandler_2__Playback_IMediaPlayer__IInspectable_Delegate_Base{$IFEND})
@@ -54,6 +58,24 @@ type
     constructor Create(AHandler: TErrorHandler);
   end;
 
+  TXAMLPlayerTappedEventHolder = class(TNoRefCountObject, Input_TappedEventHandler, Input_DoubleTappedEventHandler)
+    FHandler: TTappedHandler;
+    procedure Invoke(sender: IInspectable; e: Input_ITappedRoutedEventArgs); overload; safecall;
+    procedure Invoke(sender: IInspectable; e: Input_IDoubleTappedRoutedEventArgs); overload; safecall;
+  public
+    Token: EventRegistrationToken;
+    constructor Create(AHandler: TTappedHandler);
+  end;
+
+  TXAMLPlayerRightTappedEventHolder = class(TNoRefCountObject, Input_RightTappedEventHandler)
+    FHandler: TRightTappedHandler;
+    FParent: IUIElement;
+    procedure Invoke(sender: IInspectable; e: Input_IRightTappedRoutedEventArgs); safecall;
+  public
+    Token: EventRegistrationToken;
+    constructor Create(AHandler: TRightTappedHandler; AParent: IUIElement);
+  end;
+
   TXAMLPlayerWrapper = class
   private
     FIsland: TXAMLIsland;
@@ -71,6 +93,12 @@ type
     FEndedEventHolder: TXAMLPlayerEventHolder;
     FErrorEventHolder: TXAMLPlayerErrorEventHolder;
     FDestroying: Boolean;
+    FTappedEventHolder: TXAMLPlayerTappedEventHolder;
+    FTappedEvent: TNotifyEvent;
+    FDoubleTappedEventHolder: TXAMLPlayerTappedEventHolder;
+    FDoubleTappedEvent: TNotifyEvent;
+    FRightTappedEventHolder: TXAMLPlayerRightTappedEventHolder;
+    FRightTappedEvent: TRightTappedEvent;
     function GetControlsVisible: Boolean;
     function GetIsMuted: Boolean;
     function GetLoopPlayback: Boolean;
@@ -87,6 +115,9 @@ type
     procedure EndFileHandler;
     procedure ErrorHandler(AType: TErrorType; const AMesage: String);
     procedure StateChangeHandler;
+    function TappedHandler: Boolean;
+    function DoubleTappedHandler: Boolean;
+    function RightTappedHandler(APosition: TPointF): Boolean;
   public
     constructor Create(AIsland: TXAMLIsland);
     destructor Destroy; override;
@@ -110,13 +141,15 @@ type
     property Stretch: TVideoStretch read GetStretch write SetStretch default vsFit;
     property OnError: TPlayerErrorEvent read FErrorEvent write FErrorEvent;
     property OnStateChange: TPlayerStateEvent read FStateEvent write FStateEvent;
+    property OnClick: TNotifyEvent read FTappedEvent write FTappedEvent;
+    property OnDblClick: TNotifyEvent read FDoubleTappedEvent write FDoubleTappedEvent;
+    property OnContextPopup: TRightTappedEvent read FRightTappedEvent write FRightTappedEvent;
   end;
 
 implementation
 
 uses
-  System.SysUtils, System.Classes, System.IOUtils, System.DateUtils, System.Win.WinRT, WinAPI.Foundation,
-  Winapi.UI.Xaml.Media;
+  System.SysUtils, System.IOUtils, System.DateUtils, System.Win.WinRT, WinAPI.Foundation, Winapi.UI.Xaml.Media;
 
 { TXAMLPlayerEventHolder }
 
@@ -159,11 +192,14 @@ begin
   FIsland := AIsland;
 
   FIsland.XAMLSync(procedure
+  var
+    Element: IUIElement;
   begin
     FMPElement := TMediaPlayerElement.Create;
     FMediaPlayer := TPlayback_MediaPlayer.Create;
     FMPElement.SetMediaPlayer(FMediaPlayer);
     FPlayList := TPlayback_MediaPlaybackList.Create;
+    Element := FMPElement as IUIElement;
 
     FStateEventHolder := TXAMLPlayerEventHolder.Create(StateChangeHandler);
     FStateEventHolder.Token := FMediaPlayer.add_CurrentStateChanged(FStateEventHolder);
@@ -171,8 +207,14 @@ begin
     FEndedEventHolder.Token := FMediaPlayer.add_MediaEnded(FEndedEventHolder);
     FErrorEventHolder := TXAMLPlayerErrorEventHolder.Create(ErrorHandler);
     FErrorEventHolder.Token := FMediaPlayer.add_MediaFailed(FErrorEventHolder);
+    FTappedEventHolder := TXAMLPlayerTappedEventHolder.Create(TappedHandler);
+    FTappedEventHolder.Token := Element.add_Tapped(FTappedEventHolder);
+    FDoubleTappedEventHolder := TXAMLPlayerTappedEventHolder.Create(DoubleTappedHandler);
+    FDoubleTappedEventHolder.Token := Element.add_DoubleTapped(FDoubleTappedEventHolder);
+    FRightTappedEventHolder := TXAMLPlayerRightTappedEventHolder.Create(RightTappedHandler, Element);
+    FRightTappedEventHolder.Token := Element.add_RightTapped(FRightTappedEventHolder);
 
-    FIsland.Element := FMPElement as IUIElement;
+    FIsland.Element := Element;
   end);
 end;
 
@@ -182,6 +224,8 @@ begin
   Stop;
 
   FIsland.XAMLSync(procedure
+  var
+    Element: IUIElement;
   begin
     FMediaPlayer.remove_CurrentStateChanged(FStateEventHolder.Token);
     FStateEventHolder.Free;
@@ -190,9 +234,18 @@ begin
     FMediaPlayer.remove_MediaFailed(FErrorEventHolder.Token);
     FErrorEventHolder.Free;
 
+    Element := FMPElement as IUIElement;
+    Element.remove_Tapped(FTappedEventHolder.Token);
+    FTappedEventHolder.Free;
+    Element.remove_DoubleTapped(FDoubleTappedEventHolder.Token);
+    FDoubleTappedEventHolder.Free;
+    Element.remove_RightTapped(FRightTappedEventHolder.Token);
+    FRightTappedEventHolder.Free;
+
     FPlayList := nil;
     FMediaPlayer := nil;
     FMPElement := nil;
+    Element := nil
   end);
 
   inherited;
@@ -204,6 +257,16 @@ begin
     TThread.Queue(nil, procedure
     begin
       FStateEvent(Self, AState);
+    end);
+end;
+
+function TXAMLPlayerWrapper.DoubleTappedHandler: Boolean;
+begin
+  Result := Assigned(FDoubleTappedEvent);
+  if Result and not FDestroying then
+    TThread.Queue(nil, procedure
+    begin
+      FDoubleTappedEvent(Self);
     end);
 end;
 
@@ -450,6 +513,19 @@ begin
     end);
 end;
 
+function TXAMLPlayerWrapper.RightTappedHandler(APosition: TPointF): Boolean;
+begin
+  Result := Assigned(FRightTappedEvent);
+  if Result and not FDestroying then
+    TThread.Queue(nil, procedure
+    var
+      Res: Boolean;
+    begin
+      Res := True;
+      FRightTappedEvent(Self, APosition, Res);
+    end);
+end;
+
 procedure TXAMLPlayerWrapper.SetControlsVisible(const Value: Boolean);
 begin
   if not FIsland.XAMLSync(procedure
@@ -541,6 +617,46 @@ begin
     FMediaPlayer.SetUriSource(nil);
     DoStateChange(psStopped);
   end);
+end;
+
+function TXAMLPlayerWrapper.TappedHandler: Boolean;
+begin
+  Result := Assigned(FTappedEvent);
+  if Result and not FDestroying then
+    TThread.Queue(nil, procedure
+    begin
+      FTappedEvent(Self);
+    end);
+end;
+
+{ TXAMLPlayerTappedEventHolder }
+
+constructor TXAMLPlayerTappedEventHolder.Create(AHandler: TTappedHandler);
+begin
+  FHandler := AHandler;
+end;
+
+procedure TXAMLPlayerTappedEventHolder.Invoke(sender: IInspectable; e: Input_ITappedRoutedEventArgs);
+begin
+  e.Handled := FHandler();
+end;
+
+procedure TXAMLPlayerTappedEventHolder.Invoke(sender: IInspectable; e: Input_IDoubleTappedRoutedEventArgs);
+begin
+  e.Handled := FHandler();
+end;
+
+{ TXAMLPlayerRightTappedEventHolder }
+
+constructor TXAMLPlayerRightTappedEventHolder.Create(AHandler: TRightTappedHandler; AParent: IUIElement);
+begin
+  FHandler := AHandler;
+  FParent := AParent;
+end;
+
+procedure TXAMLPlayerRightTappedEventHolder.Invoke(sender: IInspectable; e: Input_IRightTappedRoutedEventArgs);
+begin
+  e.Handled := FHandler(e.GetPosition(FParent));
 end;
 
 end.
